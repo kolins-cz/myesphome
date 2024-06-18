@@ -1,0 +1,220 @@
+esphome:
+  name: pv-comm-abb
+  friendly_name: "ABB Inverter"
+  includes:
+    - lib/aurora/ABBAuroraStrings.cpp
+    - lib/aurora/ABBAuroraStrings.h
+    - lib/aurora/ABBAuroraEnums.h
+    - lib/aurora/ABBAurora.cpp
+    - lib/aurora/ABBAurora.h
+    - lib/aurora/InverterMonitor.h    
+  libraries:
+    - Wire
+esp8266:
+  board: d1_mini
+  
+wifi:
+  ssid: !secret wifi2_ssid
+  password: !secret wifi2_password
+  output_power: 8.5dB
+
+
+logger:
+  baud_rate: 0
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+web_server:
+  port: 80
+  local: true
+sensor:
+  - platform: custom
+    lambda: |-
+      auto monitor = InverterMonitor::get_instance();
+      App.register_component(monitor);
+      App.register_sensor(monitor->v_in_1);
+      App.register_sensor(monitor->v_in_2);
+      App.register_sensor(monitor->i_in_1);
+      App.register_sensor(monitor->i_in_2);
+      App.register_sensor(monitor->power_in_1);
+      App.register_sensor(monitor->power_in_2);
+      App.register_sensor(monitor->power_in_total);
+      App.register_sensor(monitor->power_peak_today);
+      App.register_sensor(monitor->power_peak_max);
+      App.register_sensor(monitor->temperature_inverter);
+      App.register_sensor(monitor->temperature_booster);
+      App.register_sensor(monitor->cumulated_energy_today);
+      App.register_sensor(monitor->cumulated_energy_week);
+      App.register_sensor(monitor->cumulated_energy_month);
+      App.register_sensor(monitor->cumulated_energy_year);
+      App.register_sensor(monitor->cumulated_energy_total);
+
+      return {
+        monitor->v_in_1,
+        monitor->v_in_2,
+        monitor->i_in_1,
+        monitor->i_in_2,
+        monitor->power_in_1,
+        monitor->power_in_2,
+        monitor->power_in_total,
+        monitor->power_peak_today,
+        monitor->power_peak_max,
+        monitor->temperature_inverter,
+        monitor->temperature_booster,
+        monitor->cumulated_energy_today,
+        monitor->cumulated_energy_week,
+        monitor->cumulated_energy_month,
+        monitor->cumulated_energy_year,
+        monitor->cumulated_energy_total
+      };
+    sensors:  
+      #Voltage
+      - id: v_in_1
+        name: '${friendly_name} - Voltage Input 1'
+        unit_of_measurement: V
+        accuracy_decimals: 2
+        icon: "mdi:lightning-bolt-outline"
+        state_class: measurement
+        device_class: voltage
+      - id: v_in_2
+        name: '${friendly_name} - Voltage Input 2'
+        unit_of_measurement: V
+        accuracy_decimals: 2
+        icon: "mdi:lightning-bolt-outline"
+        state_class: measurement
+        device_class: voltage
+      #Current
+      - id: i_in_1
+        name: '${friendly_name} - Current Input 1'
+        unit_of_measurement: A
+        accuracy_decimals: 2
+        icon: "mdi:current-ac"
+        state_class: measurement
+        device_class: current
+      - id: i_in_2
+        name: '${friendly_name} - Current Input 2'
+        unit_of_measurement: A
+        accuracy_decimals: 2
+        icon: "mdi:current-ac"
+        state_class: measurement
+        device_class: current
+      #Power
+      - id: power_in_1
+        name: '${friendly_name} - Power Input 1'
+        unit_of_measurement: W
+        accuracy_decimals: 0
+        icon: "mdi:solar-power"
+        state_class: measurement
+        device_class: power
+      - id: power_in_2
+        name: '${friendly_name} - Power Input 2'
+        unit_of_measurement: W
+        accuracy_decimals: 0
+        icon: "mdi:solar-power"
+        state_class: measurement
+        device_class: power
+      - id: power_in_total
+        name: '${friendly_name} - Power Generation'
+        unit_of_measurement: W
+        accuracy_decimals: 0
+        icon: "mdi:solar-power"
+        state_class: measurement
+        device_class: power
+      - id: power_peak_today
+        name: '${friendly_name} - Peak Power Today'
+        unit_of_measurement: W
+        accuracy_decimals: 0
+        icon: "mdi:solar-power"
+        state_class: measurement
+        device_class: power
+      - id: power_peak_max
+        name: '${friendly_name} - Peak Power Max'
+        unit_of_measurement: W
+        accuracy_decimals: 0
+        icon: "mdi:solar-power"
+        state_class: measurement
+        device_class: power
+      #Temperatures
+      - id: inverter_temp
+        name: '${friendly_name} - Inverter Temp.'
+        unit_of_measurement: "°C"
+        accuracy_decimals: 2
+        icon: "mdi:thermometer"
+        state_class: measurement
+        device_class: temperature
+      - id: booster_temp
+        name: '${friendly_name} - Booster Temp.'
+        unit_of_measurement: "°C"
+        accuracy_decimals: 2
+        icon: "mdi:thermometer"
+        state_class: measurement
+        device_class: temperature
+      #Energy
+      - id: cumulated_energy_today
+        name: '${friendly_name} - Daily Energy'
+        unit_of_measurement: "kWh"
+        accuracy_decimals: 3
+        icon: "mdi:car-battery"
+        state_class: total_increasing
+        device_class: energy
+        filters:
+          # Multiplication factor from W to kW is 0.001
+          - multiply: 0.001
+      - id: cumulated_energy_week
+        name: '${friendly_name} - Weekly Energy'
+        unit_of_measurement: "kWh"
+        accuracy_decimals: 3
+        icon: "mdi:car-battery"
+        state_class: total_increasing
+        device_class: energy
+        filters:
+          # Multiplication factor from W to kW is 0.001
+          - multiply: 0.001
+      - id: cumulated_energy_month
+        name: '${friendly_name} - Monthly Energy'
+        unit_of_measurement: "kWh"
+        accuracy_decimals: 3
+        icon: "mdi:car-battery"
+        state_class: total_increasing
+        device_class: energy
+        filters:
+          # Multiplication factor from W to kW is 0.001
+          - multiply: 0.001
+      - id: cumulated_energy_year
+        name: '${friendly_name} - Yearly Energy'
+        unit_of_measurement: "kWh"
+        accuracy_decimals: 3
+        icon: "mdi:car-battery"
+        state_class: total_increasing
+        device_class: energy
+        filters:
+          # Multiplication factor from W to kW is 0.001
+          - multiply: 0.001
+      - id: cumulated_energy_total
+        name: '${friendly_name} - Total Energy'
+        unit_of_measurement: "kWh"
+        accuracy_decimals: 3
+        icon: "mdi:car-battery"
+        state_class: total_increasing
+        device_class: energy
+        filters:
+          # Multiplication factor from W to kW is 0.001
+          - multiply: 0.001
+
+text_sensor:
+  - platform: custom
+    lambda: |-
+      auto monitor = InverterMonitor::get_instance();
+      App.register_text_sensor(monitor->connection_status);
+      return { monitor->connection_status };
+    text_sensors: 
+      #Status
+      - id: connection_status
+        name: '${friendly_name} - Connection Status'
+        icon: "mdi:connection"

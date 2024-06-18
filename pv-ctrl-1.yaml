@@ -1,0 +1,153 @@
+esphome:
+  name: pv-ctrl1
+  friendly_name: PV Control
+
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi2_ssid
+  password: !secret wifi2_password
+  output_power: 8.5dB
+
+time:
+  - platform: sntp
+    id: sntp_time
+    servers: "adc.ad.kolins.cz"
+
+web_server:
+  port: 80
+  local: true
+
+# Enable logging
+logger:
+  
+#mqtt:
+#  broker: net.ad.kolins.cz
+#  discovery: true      
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+
+dallas:
+  - pin: GPIO17
+    update_interval: 20s
+
+sensor:
+  - platform: dallas
+    address: 0x3db183a911646128
+    name: "PV Control cabinet Temperature"
+ 
+# -----------------------Inputs-------------------
+binary_sensor:
+  - platform: gpio
+    id: pv_ctrl1_in1
+    pin: 
+      number: GPIO18
+      mode:
+        input: true
+      inverted: true
+    name: "PV Control I1 Studer AUX1"
+
+    
+  - platform: gpio
+    id: pv_ctrl1_in2
+    pin: 
+      number: GPIO36
+      mode:
+        input: true
+      inverted: true
+    name: "PV Control I2 Studer AUX2"
+
+
+  - platform: gpio
+    id: pv_ctrl1_in3
+    pin: 
+      number: GPIO39
+      mode:
+        input: true
+      inverted: true
+    name: "PV Control I3"
+
+
+  - platform: gpio
+    id: pv_ctrl1_in4
+    pin: 
+      number: GPIO34
+      mode:
+        input: true
+      inverted: true
+    name: "PV Control I4  ABB alarm"
+
+
+# -----------------------Relay Outputs-------------------
+switch:
+
+  - platform: gpio
+    id: pv_ctrl1_relay1
+    name: "PV Control R1 ABB on/off"  
+    pin: GPIO13
+    inverted: true
+
+  - platform: gpio
+    id: pv_ctrl1_relay2
+    name: "PV Control R2 Studer on/off"  
+    pin: GPIO27
+    inverted: true
+
+  - platform: gpio
+    id: pv_ctrl1_relay3
+    name: "PV Control R3"  
+    pin: GPIO26
+    inverted: true
+
+  - platform: gpio
+    id: pv_ctrl1_relay4
+    name: "PV Control R4"  
+    pin: GPIO25
+    inverted: true
+
+  - platform: gpio
+    id: pv_ctrl1_relay5
+    name: "PV Control R5 Raspberry Power Disconnect"  
+    pin: GPIO33
+    inverted: true
+
+  - platform: gpio
+    id: pv_ctrl1_relay6
+    name: "PV Control R6 Fan"  
+    pin: GPIO32
+    inverted: true
+
+# -----------------------Open Collector Outputs-------------------
+  - platform: gpio
+    id: pv_ctrl1_oc1
+    name: "PV Optocoupler 1"  
+    pin: GPIO23
+    inverted: false
+
+  - platform: gpio
+    id: pv_ctrl1_oc2
+    name: "PV Optocoupler 2"  
+    pin: GPIO22
+    inverted: false
+
+  - platform: gpio
+    id: pv_ctrl1_oc3
+    name: "PV Optocoupler 3"  
+    pin: GPIO21
+    inverted: false
+
+  - platform: gpio
+    id: pv_ctrl1_oc4
+    name: "PV Optocoupler 4"  
+    pin: GPIO19
+    inverted: false

@@ -1,0 +1,167 @@
+esphome:
+  name: pv-mon-7seg
+  friendly_name: "PV monitor LED 7-segment"
+
+esp32:
+  #board: esp32dev
+  board: lolin_s2_mini
+  variant: esp32s2
+  framework:
+    type: arduino
+  
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  output_power: 8.5dB
+
+
+logger:
+  
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+#web_server:
+#  port: 80
+#  local: true
+
+
+sensor:
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_power
+    id: BmsPower
+    name: "BMS Power"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_state_of_charge
+    id: BmsSoc
+    name: "BMS SOC"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_total_voltage
+    id: BmsTotalVolt
+    name: "BMS Total voltage"
+    internal: true
+  
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_average_cell_voltage
+    id: BmsCellVolt
+    name: "BMS Cell voltage"
+    internal: true
+  
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_current
+    id: BmsCurr
+    name: "BMS Current"
+    internal: true
+
+  - platform: homeassistant
+    entity_id:  sensor.abb_pvi_grid_power
+    id: AbbPower
+    name: "ABB PVI Grid Power"
+    internal: true 
+
+  - platform: homeassistant
+    entity_id: sensor.pv_comm_epever_charging_power
+    id: EpeverPower
+    name: "Epsolar MPPT Charging power"
+    internal: true
+
+spi:
+  - id: spi7seg
+    clk_pin: GPIO34
+    mosi_pin: GPIO17
+  
+  - id: spiDotMatrix
+    clk_pin: GPIO9
+    mosi_pin: GPIO7
+
+
+font:
+  - file: "pixelmix.ttf"
+    id: digit_font
+    size: 8
+
+#image:
+#  - file: "happy.png"
+#    id: happy_face    
+#  - file: "sad.png"
+#    id: sad_face    
+#  - file: "neutral.png"
+#    id: neutral_face    
+
+time:
+  - platform: homeassistant
+    id: hass_time
+
+display:
+  - platform: max7219
+    spi_id: spi7seg
+    cs_pin: GPIO21
+    num_chips: 4
+    intensity: 2
+    update_interval: 50ms
+    lambda: |-
+      it.printf(0, "Pb %5.0f", id(BmsPower).state);
+      it.printf(8, "Ub  %2.2f", id(BmsTotalVolt).state);
+      it.printf(16,  "Uc  %1.3f", id(BmsCellVolt).state);
+      it.printf(24,  "CUr %4.1f", id(BmsCurr).state);
+  
+  - platform: max7219
+    spi_id: spiDotMatrix
+    cs_pin: GPIO16
+    num_chips: 1
+    intensity: 2
+    update_interval: 50ms
+    lambda: |-
+      it.printf(0, "PF %5.0f", id(AbbPower).state+id(EpeverPower).state);
+      
+
+  - platform: max7219digit
+    spi_id: spiDotMatrix
+    cs_pin: GPIO11
+    num_chips: 2
+    intensity: 0
+    update_interval: 50ms
+    lambda: |-
+      //it.scroll(true, max7219digit::CONTINUOUS, 50, 0, 0);
+      //it.print(0, 0, id(digit_font), "    Fuck you!");
+      /*
+      float mySoc = id(BmsSoc).state;
+      unsigned int mySocInt = static_cast<unsigned int>(mySoc);
+      char const* mySocStr = std::to_string(mySocInt).c_str();
+      char unit = '%';
+      mySocStr += unit;
+      it.print(0, 0, id(digit_font), mySocStr);
+      */
+
+      float mySoc = id(BmsSoc).state;
+      char mySocStr[10]; // Adjust the size as needed
+      snprintf(mySocStr, sizeof(mySocStr), "%.0f%", mySoc);
+      it.print(0, 0, id(digit_font), mySocStr);
+      
+      it.rectangle(15, 7, 1, 1);
+      it.rectangle(12, 4, 1, 1);
+      
+      it.rectangle(12, 7, 1, 1);
+      it.rectangle(13, 6, 1, 1);
+      it.rectangle(14, 5, 1, 1);
+      it.rectangle(15, 4, 1, 1);
+
+
+      //it.printdigitf(0,0, "%3.0f", id(BmsSoc).state);
+      //it.printdigitf(0,0, "%3u", id(BmsSoc).state);
+
+      //it.print(0, 0, id(digit_font), id(BmsSoc).state);
+#        it.image(0, 0, id(happy_face));
+#        it.image(0, 0, id(sad_face));
+
+      

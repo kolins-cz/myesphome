@@ -1,0 +1,202 @@
+esphome:
+  name: pv-mon-lcd
+  friendly_name: "PV monitor LCD 320x240"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+
+wifi:
+#  ssid: !secret wifi_ssid
+#  password: !secret wifi_password
+  output_power: 8.5dB
+  ssid: Fuckyou
+  password: weakpassword
+  use_address: 192.168.99.66
+
+
+# time:
+#   - platform: homeassistant
+#     id: homeassistant_time
+
+time:
+  - platform: sntp
+    id: sntp_time
+    servers: "pool.ntp.org"
+
+logger:
+  
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+web_server:
+  port: 80
+  local: true
+
+
+wireguard:
+  address: 192.168.99.66
+  private_key:  !secret wireguard_private_key
+  peer_endpoint: !secret wireguard_peer_endpoint
+  peer_public_key: !secret wireguard_peer_public_key
+
+  # Optional netmask (this is the default if omitted)
+  netmask: 0.0.0.0
+
+  # Optional endpoint port (WireGuard default if omitted)
+  peer_port: 13231
+
+  # Optional pre-shared key (omit if not in use)
+  
+
+  # Optional list of ip/mask (any host is allowed if omitted)
+  peer_allowed_ips:
+    - 192.168.10.0/24
+    - 192.168.99.0/24
+
+  # Optional keepalive (disabled by default)
+  peer_persistent_keepalive: 25s
+
+
+
+sensor:
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_power
+    id: BmsPower
+    name: "BMS Power"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_state_of_charge
+    id: BmsSoc
+    name: "BMS SOC"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_total_voltage
+    id: BmsTotalVolt
+    name: "BMS Total voltage"
+    internal: true
+  
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_average_cell_voltage
+    id: BmsCellVolt
+    name: "BMS Cell voltage"
+    internal: true
+  
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_current
+    id: BmsCurr
+    name: "BMS Current"
+    internal: true
+  
+  - platform: homeassistant
+    entity_id: sensor.abb_pvi_grid_power
+    id: AbbPwr
+    name: "ABB Current"
+    internal: true    
+
+  - platform: homeassistant
+    entity_id: sensor.pv_comm_epever_charging_power
+    id: EpeverPwr
+    name: "Epever Current"
+    internal: true   
+
+  - platform: homeassistant
+    entity_id: sensor.abb_pvi_grid_frequency
+    id: AbbFreq
+    name: "ABB Frequency"
+    internal: true    
+
+
+spi:
+  - id: spi_lcd
+    clk_pin: GPIO14
+    mosi_pin: GPIO13
+    
+
+font:
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: font2
+    size: 16
+
+  - file: "fonts/terminus/ter-u12n.bdf"
+    id: terminus12n
+  - file: "fonts/terminus/ter-u32n.bdf"
+    id: terminus32n
+  - file: "fonts/terminus/ter-u32b.bdf"
+    id: terminus32b
+
+#image:
+#  - file: "happy.png"
+#    id: happy_face    
+#  - file: "sad.png"
+#    id: sad_face    
+#  - file: "neutral.png"
+#    id: neutral_face    
+
+# Define a PWM output on the ESP32
+output:
+  - platform: ledc
+    pin: 21
+    id: backlight_pwm
+  
+  - platform: ledc
+    id: output_component1
+    inverted: true
+    pin: GPIO4
+
+  - platform: ledc
+    id: output_component2
+    inverted: true
+    pin: GPIO16
+      
+  - platform: ledc
+    id: output_component3
+    inverted: true
+    pin: GPIO17
+
+
+# Define a monochromatic, dimmable light for the backlight
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "pv-mon-lcd Display Backlight"
+    id: back_light
+    restore_mode: ALWAYS_ON
+  - platform: rgb
+    name: "pv-mon-lcd RGB LED"
+    red: output_component1
+    green: output_component2
+    blue: output_component3
+display:
+  - platform: ili9xxx
+    model: ili9341
+    dc_pin: GPIO2
+    reset_pin: GPIO12
+    cs_pin: GPIO15
+    data_rate: 40MHz
+    spi_mode: MODE0
+    dimensions: 240x320
+    lambda: |-
+      it.fill(COLOR_BLACK);
+      it.printf(20, 30, id(terminus32b),  "Pabb %6.0fW", id(AbbPwr).state);
+      it.printf(20, 60, id(terminus32b),  "Pepv %6.0fW", id(EpeverPwr).state);
+      it.printf(20, 90, id(terminus32b),  "Pbat %6.0fW", id(BmsPower).state);
+      it.printf(20, 120, id(terminus32b), "SoC  %6.0f%%", id(BmsSoc).state);
+      it.printf(20, 150, id(terminus32b), "Ub   %6.2fV", id(BmsTotalVolt).state);
+      it.printf(20, 180, id(terminus32b), "Uc   %6.3fV", id(BmsCellVolt).state);
+      it.printf(20, 210, id(terminus32b), "Ib   %6.1fA", id(BmsCurr).state);
+      it.printf(20, 240, id(terminus32b), "Freq %6.3fHz", id(AbbFreq).state);

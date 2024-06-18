@@ -1,0 +1,151 @@
+esphome:
+  name: pv-mon-7seg
+  friendly_name: "PV monitor LED 7-segment"
+
+esp32:
+  #board: esp32dev
+  board: lolin_s2_mini
+  variant: esp32s2
+  framework:
+    type: arduino
+  
+wifi:
+  ssid: Fuckyou
+  password: weakpassword
+  output_power: 8.5dB
+  use_address: 192.168.99.66
+
+time:
+  - platform: sntp
+    id: sntp_time
+    servers: "pool.ntp.org"
+
+logger:
+  
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+web_server:
+  port: 80
+  local: true
+
+
+wireguard:
+  address: 192.168.99.66
+  private_key:  !secret wireguard_private_key
+  peer_endpoint: !secret wireguard_peer_endpoint
+  peer_public_key: !secret wireguard_peer_public_key
+
+  # Optional netmask (this is the default if omitted)
+  netmask: 0.0.0.0
+
+  # Optional endpoint port (WireGuard default if omitted)
+  peer_port: 13231
+
+  # Optional pre-shared key (omit if not in use)
+  
+
+  # Optional list of ip/mask (any host is allowed if omitted)
+  peer_allowed_ips:
+    - 192.168.10.0/24
+    - 192.168.99.0/24
+
+  # Optional keepalive (disabled by default)
+  peer_persistent_keepalive: 25s
+
+
+
+sensor:
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_power
+    id: BmsPower
+    name: "BMS Power"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_state_of_charge
+    id: BmsSoc
+    name: "BMS SOC"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_total_voltage
+    id: BmsTotalVolt
+    name: "BMS Total voltage"
+    internal: true
+  
+
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_average_cell_voltage
+    id: BmsCellVolt
+    name: "BMS Cell voltage"
+    internal: true
+  
+  - platform: homeassistant
+    entity_id: sensor.solar_battery_bms_current
+    id: BmsCurr
+    name: "BMS Current"
+    internal: true
+    
+
+spi:
+  - id: spi7seg
+    clk_pin: GPIO34
+    mosi_pin: GPIO17
+  
+  - id: spiDotMatrix
+    clk_pin: GPIO9
+    mosi_pin: GPIO7
+
+
+font:
+  - file: "pixelmix.ttf"
+    id: digit_font
+    size: 8
+
+#image:
+#  - file: "happy.png"
+#    id: happy_face    
+#  - file: "sad.png"
+#    id: sad_face    
+#  - file: "neutral.png"
+#    id: neutral_face    
+
+
+
+display:
+  - platform: max7219
+    spi_id: spi7seg
+    cs_pin: GPIO21
+    num_chips: 5
+    intensity: 2
+    update_interval: 50ms
+    lambda: |-
+      it.printf(0, "P %6.0f", id(BmsPower).state);
+      it.printf(8, "5OC  %3.0f", id(BmsSoc).state);
+      it.printf(16, "Ub  %2.2f", id(BmsTotalVolt).state);
+      it.printf(24,  "Uc  %1.3f", id(BmsCellVolt).state);
+      it.printf(32,  "CUr %4.1f", id(BmsCurr).state);
+
+  - platform: max7219digit
+    spi_id: spiDotMatrix
+    cs_pin: GPIO11
+    num_chips: 2
+    intensity: 0
+    update_interval: 50ms
+    lambda: |-
+      it.scroll(true, max7219digit::CONTINUOUS, 50, 0, 0);
+      it.print(0, 0, id(digit_font), "   Live values from my offgrid solar system...");
+      //it.printdigitf(0,0, "%3.0f", id(BmsSoc).state);
+
+      //it.print(0, 0, id(digit_font), id(BmsSoc).state);
+#        it.image(0, 0, id(happy_face));
+#        it.image(0, 0, id(sad_face));
+
+      

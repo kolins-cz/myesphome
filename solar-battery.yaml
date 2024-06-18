@@ -4,8 +4,7 @@ substitutions:
   name3: INA229
   device_description: "Monitor and control a Heltec/NEEY 4A balancer via bluetooth and JBD BMS via UART, INA229 vis SPI"
   mac_address: 00:e4:4c:21:cf:55
-  fram_soc_memory: "0x0"
-  fram_soc_memory_bck: "0xa"
+
 
   jbd_tx_pin: GPIO16
   jbd_rx_pin: GPIO17
@@ -17,9 +16,22 @@ esphome:
   comment: ${device_description}
   on_boot:
     priority: 800.0
-    # ...
     then:
       - lambda: |-
+          double fram_remaining_capacity = id(fram_1).read_double(0x0);
+          id(ina22x_remaining_capacity).publish_state(fram_remaining_capacity);
+          ESP_LOGW("FRAM", "Restored remaining capacity: %f", fram_remaining_capacity);
+          double fram_chosen_batt_capacity = id(fram_1).read_double(0xa);
+          id(chosen_batt_capacity).publish_state(fram_chosen_batt_capacity);
+          ESP_LOGW("FRAM", "Restored chosen battery capacity: %f", fram_chosen_batt_capacity);
+  on_shutdown:
+    priority: 800.0
+    then:
+      - lambda: |-
+          id(fram_1).write_double(0x0, id(ina22x_remaining_capacity).state);
+          ESP_LOGW("FRAM", "Stored remaining capacity: %f", id(ina22x_remaining_capacity).state);
+          id(fram_1).write_double(0xa, id(chosen_batt_capacity).state);
+          ESP_LOGW("FRAM", "Stored chosen battery capacity: %f", id(chosen_batt_capacity).state); 
 
 
 esp32:
@@ -31,10 +43,11 @@ esp32:
 external_components:
   - source: github://syssi/esphome-jk-bms@main
   - source: github://syssi/esphome-jbd-bms@main
-  - source: github://latonita/esphome-ina228@main
+#  - source: github://latonita/esphome-ina228@main
+  - source: github://pr#6138
     components: [ina2xx_base, ina2xx_spi]
     refresh: 0s
-  - source: github://pr#4880
+  - source: github://pr#4880  #https://deploy-preview-2950--esphome.netlify.app/components/fram
     components: [ fram, fram_pref ]
 
 wifi:
@@ -44,7 +57,7 @@ wifi:
 ota:
   password: !secret ota_password
 logger:
-  level: DEBUG
+#  level: WARN
 
 api:
   encryption:
@@ -90,7 +103,7 @@ i2c:
   scl: GPIO22
   frequency: 400kHz
 
-
+#FRAM chip FM24CL16B-GTR
 fram:
   id: fram_1
   i2c_id: iic
@@ -162,11 +175,19 @@ button:
       name: "${name1} retrieve device info"
     retrieve_factory_defaults:
       name: "${name1} retrieve factory defaults"
-
+ 
   - platform: template
     name: "${name3} Reset counters"
     on_press:
       - lambda: "id(ina22x).reset_energy_counters();"
+
+  - platform: template
+    name: "${name3} Reset Ah counter"
+    on_press:
+      - lambda: "id(ina22x_remaining_capacity).publish_state(0.0);"
+
+  - platform: restart
+    name: "Restart"
 
 
 number:
@@ -189,12 +210,40 @@ number:
     name: "${name3} nominal battery capacity"
     min_value: 1
     max_value: 500
-    optimistic: true
+    optimistic: False
     step: 1
     unit_of_measurement: Ah
+    set_action:
+      - lambda: |-
+          id(fram_1).write_double(0xa, x);
+          return;
+    #lambda: |-
+    #  double capacity = id(chosen_batt_capacity).state;
+    #  id(fram_1).write(0xa, capacity);
+    #  return capacity;
+
 
 
 sensor:
+  - platform: template
+    name: "${name3} Capacity remaining"
+    id: ina22x_remaining_capacity
+    update_interval: 5s
+    unit_of_measurement: "Ah"
+    icon: "mdi:battery-50"
+    # device_class: "battery" no device class
+    state_class: "measurement"
+    accuracy_decimals: 3
+    lambda: |-
+      double coulombsTemp = id(ina22x_coloumbs).state;
+      id(ina22x).reset_energy_counters();
+      double AhTemp = coulombsTemp / 3600;
+      double resultTemp = id(ina22x_remaining_capacity).state + AhTemp;
+      id(fram_1).write_double(0x0, resultTemp);
+      return resultTemp;
+
+
+
 #-------------balancer-------------------------------------------------------------------
   - platform: heltec_balancer_ble
     min_cell_voltage:
@@ -396,6 +445,7 @@ sensor:
 #-------------INA229-------------------------------------------------------------------
   - platform: ina2xx_spi
     id: ina22x
+    model: INA229
     spi_id: spi0
     cs_pin: GPIO33
     update_interval: 1s
@@ -435,6 +485,7 @@ sensor:
       name: "${name3} Charge"
       accuracy_decimals: 1
     charge_coulombs:
+      id: ina22x_coloumbs
       name: "${name3} Charge (Coulombs)"
       accuracy_decimals: 1
   

@@ -1,0 +1,1339 @@
+substitutions:
+  ## Basics
+  devicename: "BW1-AUTO-LIFEPO4-ODPOJOVAC"
+  devicename_lower: "bw1-auto-lifepo4-odpojovac"
+  calibration_first: 0 -> 0
+  calibration_second: 1.598 -> 3.175
+  calibration_third: 1.598 -> 3.175
+  device_description: "Autodilna baterky odpojovac"
+  dallas_id_0: "0x8492456c0e64ff28"
+  dallas_id_1: "0xab3c39f649883028"   
+  dallas_id_2: "0x5e3c49f649c9fb28"
+  internal_consumption: "2.35"
+  loglevel: ERROR
+  ## Basics end
+  ## EEPROM adresses region
+  eeprom_charging_energy_daily_addr: "0x0"
+  eeprom_discharging_energy_daily_addr: "0x4"  
+  eeprom_charging_energy_monthly_addr: "0x8"
+  eeprom_discharging_energy_monthly_addr: "0x12"    
+  eeprom_charging_energy_total_addr: "0x16"
+  eeprom_discharging_energy_total_addr: "0x20"    
+  eeprom_write_counter_addr: "0x24"    
+  eeprom_wattrouter0_phase_1_daily: "0x28"    
+  eeprom_wattrouter0_phase_2_daily: "0x32"      
+  eeprom_wattrouter0_phase_3_daily: "0x36"      
+  ## EEPROM adresses region end
+preferences:
+  flash_write_interval: 1h
+
+esphome:
+  platformio_options:
+    board_build.f_cpu: 240000000L
+  name: ${devicename_lower} 
+  on_boot:
+    priority: 800.0
+    # ...
+    then:
+      - lambda: |-
+          // Daily
+          float ChargingEnergyEEPROM = ext_eeprom_component_1->read_float(${eeprom_charging_energy_daily_addr});
+          float DischargingEnergyEEPROM = ext_eeprom_component_1->read_float(${eeprom_discharging_energy_daily_addr});
+          // Monthly
+          float ChargingEnergyMonthlyEEPROM = ext_eeprom_component_1->read_float(${eeprom_charging_energy_monthly_addr});
+          float DischargingEnergyMonthlyEEPROM = ext_eeprom_component_1->read_float(${eeprom_discharging_energy_monthly_addr});
+          // Total
+          float ChargingEnergyTotalEEPROM = ext_eeprom_component_1->read_float(${eeprom_charging_energy_total_addr});
+          float DischargingEnergyTotalEEPROM = ext_eeprom_component_1->read_float(${eeprom_discharging_energy_total_addr});
+
+          // Daily
+          id(DischargingEnergy).reset_to_value(DischargingEnergyEEPROM);
+          id(ChargingEnergy).reset_to_value(ChargingEnergyEEPROM);
+          // Monthly
+          id(DischargingEnergyMonthly).reset_to_value(DischargingEnergyMonthlyEEPROM);
+          id(ChargingEnergyMonthly).reset_to_value(ChargingEnergyMonthlyEEPROM);      
+          // Total
+          id(DischargingEnergyTotal).reset_to_value(DischargingEnergyTotalEEPROM);
+          id(ChargingEnergyTotal).reset_to_value(ChargingEnergyTotalEEPROM); 
+          ESP_LOGE("EEPROM", "Just finished initial EEPROM integration sensors read.");  
+
+          // Wattrouter 0 energies
+          // Wattrouter 0 daily    
+          id(Wattrouter0Phase1DailyEnergy).reset_to_value(ext_eeprom_component_1->read_float(${eeprom_wattrouter0_phase_1_daily}));
+          id(Wattrouter0Phase2DailyEnergy).reset_to_value(ext_eeprom_component_1->read_float(${eeprom_wattrouter0_phase_2_daily}));
+          id(Wattrouter0Phase3DailyEnergy).reset_to_value(ext_eeprom_component_1->read_float(${eeprom_wattrouter0_phase_3_daily}));          
+      
+
+esp32:
+  board: nodemcu-32s
+#  framework:
+#    type: esp-idf
+    # Custom sdkconfig options
+#    sdkconfig_options:
+#      CONFIG_COMPILER_OPTIMIZATION_SIZE: y
+    # Advanced tweaking options
+#    advanced:
+#      ignore_efuse_mac_crc: false  
+
+#esp32:
+#  board: esp32dev
+#  framework:
+#    type: arduino
+
+external_components:
+  # use rtttl and dfplayer from ESPHome's dev branch in GitHub
+  - source:
+      type: git
+      url: https://github.com/pebblebed-tech/esphome.git
+      ref: add-serial-EEPROM-feature
+    components: [ external_eeprom ]
+  - source:
+      type: git
+      url: https://github.com/mrkvo/esphome.git
+      ref: feature-integration-reset-to-value
+    components: [ integration ]
+
+
+# Enable logging
+logger:
+  level: ${loglevel}
+
+ 
+
+api:
+  reboot_timeout: 8h
+  encryption:
+    key: "2+p7AkGYxt9qdy9RS+i+QH8GHlLY5WvVus5YVW/gJSU="
+ota:
+  password: "68fc8d82c5d8be0cae015338e217ceb2"
+debug:
+  update_interval: 5s
+############################
+## Wifi definition
+############################  
+wifi:
+  networks:
+
+    - ssid: fuckyou
+      password: youfuck
+
+  output_power: 8.5db
+  use_address: 192.168.35.145
+
+############################
+## Webserver definition
+############################
+web_server:
+  port: 80
+  auth:
+    username: mrkvo
+    password: 
+############################
+## Time events
+############################
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Prague
+    servers:
+     - 0.pool.ntp.org
+     - 1.pool.ntp.org
+     - 2.pool.ntp.org
+    on_time:
+      ############################
+      ## Reset month stats
+      ############################
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        days_of_month: 1
+        then:
+          - lambda: |-
+              id(DischargingEnergyMonthly).reset_to_value(0);
+              id(ChargingEnergyMonthly).reset_to_value(0);    
+      ############################
+      ## Reset midnight stats
+      ############################
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - lambda: |-
+              float power = id(Wattrouter0PowerFromGridTrue2).state;
+              if (power < -1000 || power > 1000) {
+                  power = 0.0;
+              }
+              char message[150]; // Rozšířili jsme pole na 150 znaků
+              sprintf(message, "[Autodilna Odpojovac] Dnesni realna spotreba Wattrouter 0 %f kW", power);
+              // Reset hodnot
+              id(Wattrouter0Phase1DailyEnergy).reset_to_value(0);
+              id(Wattrouter0Phase2DailyEnergy).reset_to_value(0);           
+              id(Wattrouter0Phase3DailyEnergy).reset_to_value(0);      
+
+########################################################
+## Sun events used for resetting daily capacities
+########################################################
+sun:
+  latitude: 49.738430°
+  longitude: 13.373637°
+  id: MySun
+  on_sunrise:
+    - then:
+        - logger.log: Good morning!
+        - lambda: |-
+            // Are the batteries in the morning not yet discharged? Do not reset!
+            if(id(RemainingEnergy).state > 2) {
+              
+            }
+            else {
+              id(DischargingEnergy).reset_to_value(0);
+              id(ChargingEnergy).reset_to_value(0);              
+            }
+
+#################################
+## Eexternal EEPROM 24c02 
+#################################
+external_eeprom:
+  id: ext_eeprom_component_1
+  address: 0x50
+  ee_memory_type: 24XX02
+  i2c_buffer_size: 128
+#########################
+# MQTT SETTINGS
+#########################
+mqtt:
+  broker: 192.168.35.95
+  username: mrkvo
+  password: kecyvklecipico***
+  id: mqtt_cryptobastard
+  log_topic: null
+  keepalive: 5s
+  reboot_timeout: 8h
+  on_disconnect:
+    - binary_sensor.template.publish:
+        id: "mqtt_status_10"
+        state: OFF
+        
+  on_connect:
+    - binary_sensor.template.publish:
+        id: "mqtt_status_10"
+        state: ON         
+#########################
+# I2C SETTINGS
+#########################    
+i2c:
+  sda: GPIO32
+  scl: GPIO33
+  scan: true
+  id: bus_a
+  frequency: 1000kHz    
+
+#################################################
+# UART used for reating ATMEGA incomming data
+#################################################
+uart:
+  baud_rate: 115200
+  rx_pin: GPIO23
+  data_bits: 8
+  stop_bits: 1
+  parity: NONE
+  debug:
+    direction: RX
+    dummy_receiver: true
+    after:
+      delimiter: "\n"
+    sequence:
+      - lambda: |-
+          std::string str(reinterpret_cast<char*>(bytes.data()), bytes.size());
+          ESP_LOGD("uart", "Received string: %s", str.c_str());
+
+          StaticJsonDocument<2048> doc;
+          DeserializationError error = deserializeJson(doc, str);
+          if (error) {
+            ESP_LOGW("uart", "Failed to parse JSON: %s", error.c_str());
+            return;
+          }
+
+          int voltage_real = doc["BatteryVoltageReal"].as<int>();
+          int voltage_raw = doc["BatteryVoltageRaw"].as<int>();
+          int allvoltage_real = doc["AllBatVoltageReal"].as<int>();          
+          int allvoltage_raw = doc["AllBatVoltageRaw"].as<int>();
+          //ESP_LOGD("uart", "Battery voltage (real): %d", voltage_real);
+          //ESP_LOGD("uart", "Battery voltage (raw): %d", voltage_raw);
+
+          //ESP_LOGD("uart", "AllBattery voltage (real): %d", allvoltage_real);
+          //ESP_LOGD("uart", "AllBattery voltage (raw): %d", allvoltage_raw);
+          // Update text sensors
+          id(battery_voltage_real).publish_state(((float) voltage_real)/1000);
+          id(battery_voltage_raw).publish_state((voltage_raw));    
+
+          id(allbattery_voltage_real).publish_state(((float) allvoltage_real)/10);
+          id(allbattery_voltage_raw).publish_state((allvoltage_raw));      
+
+          //id(battery_voltage_real).publish_state(std::to_string(((float) voltage_real)/1000));
+          //id(battery_voltage_raw).publish_state(std::to_string(voltage_raw));          
+
+########################
+### Dallas definition
+########################
+
+dallas:
+  pin:
+    number: GPIO16
+    mode:
+        input: true
+        pullup: true  
+  update_interval: 1s
+
+
+########################################################
+## Interval
+########################################################
+interval:
+  - interval: 500ms
+    then:
+      lambda: !lambda |-
+        if (id(battery_voltage).state > 3.59) {
+          id(my_slow_pwm).set_level(1);
+          id(balancing_status).publish_state("100");
+        } 
+        else if(id(battery_voltage).state > 3.57) { 
+          id(my_slow_pwm).set_level(1);          
+          id(balancing_status).publish_state("100");
+        }
+        else if(id(battery_voltage).state > 3.53) { 
+          id(my_slow_pwm).set_level(1);          
+          id(balancing_status).publish_state("100");
+        }        
+        else if(id(battery_voltage).state > 3.49) { 
+          id(my_slow_pwm).set_level(1);          
+          id(balancing_status).publish_state("100");
+        }                
+        else {
+          if((id(GATE_FORCE).state==true) && (id(battery_voltage).state > 3.18)) {
+              id(my_slow_pwm).set_level(100); 
+              id(balancing_status).publish_state("100");  // Forced balancing by user 
+          }
+          else {
+            id(my_slow_pwm).set_level(0);  
+            id(balancing_status).publish_state("0");
+          }
+
+        }
+##########################################
+### Checking outside world connectivity
+##########################################       
+  - interval: 10s
+    then:
+      if:
+        condition:
+          for:
+            time: 2min
+            condition:
+              binary_sensor.is_off: mqtt_status_10
+        then:
+          - logger.log: Mqtt is not reachable for at least 2 minutes!
+          - switch.turn_off: ChargingGate  
+          - switch.turn_off: DischargingGate
+##########################################
+### Charging / discharging power calculation
+##########################################   
+  - interval: 500ms
+    then: 
+      - lambda: id(ChargingPower)->publish_state( id(allbattery_voltage_real)->state * id(ChargingCurrent)->state / 1000);
+      - lambda: id(DischargingPower)->publish_state( id(allbattery_voltage_real)->state * id(DischargingCurrent)->state / 1000);   
+
+  - interval: 10s
+    then: 
+      - lambda: id(Wattrouter0PowerFromGridTrue)->publish_state( id(Wattrouter0Phase1DailyEnergy).state + id(Wattrouter0Phase2DailyEnergy).state + id(Wattrouter0Phase3DailyEnergy).state);
+
+
+ 
+#####################################
+## EEPROM data periodical storage
+#####################################
+  - interval: 60s
+    then: 
+      - lambda: |-
+          //
+          // EEPROM write counter
+          //
+          int eeprom_write_counter = 0;
+          eeprom_write_counter = ext_eeprom_component_1->read32(${eeprom_write_counter_addr});  // read
+          eeprom_write_counter++;                                                               // increment
+          id(EEPROMWriteCounter).publish_state(eeprom_write_counter);                           // update sensor
+          ext_eeprom_component_1->write32(${eeprom_write_counter_addr}, eeprom_write_counter);  // write
+
+          //
+          // Energies storage
+          //
+
+          // Daily
+          ext_eeprom_component_1->write_float(${eeprom_charging_energy_daily_addr}, id(ChargingEnergy).state);
+          ext_eeprom_component_1->write_float(${eeprom_discharging_energy_daily_addr}, id(DischargingEnergy).state); 
+          //ESP_LOGE("EEPROM", "Just saved discharging energy : %f", id(DischargingEnergy).state);
+
+          //ESP_LOGE("EEPROM", "Discharging energy readback: %f", ext_eeprom_component_1->read_float(${eeprom_discharging_energy_daily_addr}));
+
+          // Monthly
+          ext_eeprom_component_1->write_float(${eeprom_charging_energy_monthly_addr}, id(ChargingEnergyMonthly).state);
+          ext_eeprom_component_1->write_float(${eeprom_discharging_energy_monthly_addr}, id(DischargingEnergyMonthly).state);     
+          // Total
+          ext_eeprom_component_1->write_float(${eeprom_charging_energy_total_addr}, id(ChargingEnergyTotal).state);
+          ext_eeprom_component_1->write_float(${eeprom_discharging_energy_total_addr}, id(DischargingEnergyTotal).state);     
+
+          // Wattrouter 0 daily    
+          ext_eeprom_component_1->write_float(${eeprom_wattrouter0_phase_1_daily}, id(Wattrouter0Phase1DailyEnergy).state);
+          ext_eeprom_component_1->write_float(${eeprom_wattrouter0_phase_2_daily}, id(Wattrouter0Phase2DailyEnergy).state);   
+          ext_eeprom_component_1->write_float(${eeprom_wattrouter0_phase_3_daily}, id(Wattrouter0Phase3DailyEnergy).state);   
+
+
+
+########################################################
+## Switches
+########################################################
+switch:
+  - platform: template
+    name: "${devicename_lower} Daily energy EEPROM reset"
+    id: "DailyEnergyEEPROMReset"
+    turn_on_action:
+        - lambda: |-
+            id(DischargingEnergy).reset_to_value(0);
+            id(ChargingEnergy).reset_to_value(0);            
+
+  - platform: template
+    name: "${devicename_lower} Monthly energy EEPROM reset"
+    id: "MonthlyEnergyEEPROMReset"
+    turn_on_action:
+        - lambda: |-
+            id(DischargingEnergyMonthly).reset_to_value(0);
+            id(ChargingEnergyMonthly).reset_to_value(0);        
+
+  - platform: template
+    name: "${devicename_lower} Daily energy Wattrouter 0 reset"
+    id: "DailyEnergyWattrouterEEPROMReset"
+    turn_on_action:
+        - lambda: |-
+            id(Wattrouter0Phase1DailyEnergy).reset_to_value(0);
+            id(Wattrouter0Phase2DailyEnergy).reset_to_value(0);
+            id(Wattrouter0Phase3DailyEnergy).reset_to_value(0);            
+
+  - platform: template
+    id: "GATE_FORCE"
+    optimistic: True
+    name: "${devicename_lower} Balancing force"
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: GPIO17
+    id: "EXT_SHUTDOWN_CLEAR"
+    name: "${devicename_lower} nEXT_SHUTDOWN_CLEAR"    
+    restore_mode: ALWAYS_ON
+
+
+  - platform: gpio
+    pin: GPIO21
+    id: "ChargingGate"
+    name: "${devicename_lower} Charging Gate"      
+    restore_mode: ALWAYS_ON
+
+  - platform: gpio
+    pin: GPIO22
+    id: "DischargingGate"
+    name: "${devicename_lower} Discharging Gate"
+    restore_mode: ALWAYS_ON    
+
+  - platform: gpio
+    pin: GPIO27
+    id: FanChargingPWM
+    name: "${devicename_lower} FanChargingPWM"
+    inverted: true
+
+  - platform: gpio
+    pin: GPIO13
+    id: FanDischargingPWM
+    name: "${devicename_lower} FanDischargingPWM"
+    inverted: true
+    
+########################################################
+## Binary sensors
+########################################################    
+binary_sensor:
+  - platform: gpio
+    pin: GPIO25
+    id: "EXT_SHUTDOWN_STATUS"
+    name: "${devicename_lower} External shutdown status"
+
+  - platform: template
+    name: "MQTT Status"      
+    id: "mqtt_status_10"
+
+output:
+  #########################
+  # SLOW_PWM
+  #########################      
+  - platform: slow_pwm
+    id: my_slow_pwm
+    pin: GPIO26
+    period: 0.5s
+    turn_on_action:
+      - lambda: |-
+          auto *out1 = id(my_slow_pwm);
+          out1->turn_on();
+
+    turn_off_action:
+      - output.turn_off: my_slow_pwm
+
+
+
+  #########################
+  # FAN PWM
+  #########################
+
+
+
+#light:
+#  - platform: monochromatic
+#    output: FanChargingPWM
+#    name: "${devicename} FanChargingPWM"  
+#  - platform: monochromatic
+#    output: FanChargingPWM
+#    name: "${devicename} FanDischargingPWM"  
+
+
+
+
+
+
+
+
+#########################
+# SENSORS
+#########################    
+
+
+
+sensor:
+  ###################################################################
+  # Dallas sensors for bat temp and heatsinks of mosfets
+  ######################### #########################################
+  - platform: dallas
+    address: ${dallas_id_0}
+    name: "${devicename_lower} Battery temp 1"
+    accuracy_decimals: 2  
+
+
+  - platform: dallas
+    address: ${dallas_id_1}
+    name: "${devicename_lower} Heatsink discharging"
+    accuracy_decimals: 2  
+
+  - platform: dallas
+    address: ${dallas_id_2}
+    name: "${devicename_lower} Heatsink charging"
+    accuracy_decimals: 2  
+
+  - platform: debug
+    loop_time:
+      name: "${devicename_lower} Loop Time"
+
+  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
+    name: "${devicename_lower} WiFi Signal dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: copy # Reports the WiFi signal strength in %
+    source_id: wifi_signal_db
+    name: "${devicename_lower} WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
+
+  #########################
+  # CURRENT MEASUREMENT
+  ######################### 
+  - platform: ina226
+    address: 0x41
+    shunt_resistance: 0.00025 ohm
+    current:
+      name: "${devicename_lower} Charging Current"
+      id: "ChargingCurrent"
+      filters:
+        #- calibrate_linear:
+          # Map 0.0 (from sensor) to 0.0 (true value)
+          #- 0 -> 0
+          #- 2.146 -> 2.48
+    bus_voltage:
+      id: ChargingBusVoltage
+      name: "${devicename_lower} Charging Bus Voltage"
+
+    max_current: 300A
+    update_interval: 1s
+
+  - platform: ina226
+    address: 0x40
+    shunt_resistance: 0.00025 ohm
+    current:
+      name: "${devicename_lower} Discharging Current"
+      id: "DischargingCurrent"
+      filters:
+        #- calibrate_linear:
+          # Map 0.0 (from sensor) to 0.0 (true value)
+          #- 0 -> 0
+          #- 2.146 -> 2.48
+        - multiply: -1
+
+    bus_voltage:
+      id: DischargingBusVoltage
+      name: "${devicename_lower} Disarging Bus Voltage"
+    max_current: 300A
+    update_interval: 1s
+
+  - platform: template
+    name: "${devicename_lower} Battery voltage Atmega"
+    id: battery_voltage_real
+    update_interval: 1s
+    accuracy_decimals: 2
+ 
+    #lambda: |-
+    #  //return {std::to_string(id(battery_voltage_real).state)};
+      
+  - platform: template
+    name: "${devicename_lower} Battery voltage Raw Atmega"
+    id: battery_voltage_raw
+    update_interval: 1s    
+    #lambda: |-
+    #  //return {std::to_string(id(battery_voltage_raw).state)};
+
+  - platform: template
+    name: "${devicename_lower} AllBattery voltage Atmega"
+    id: allbattery_voltage_real
+    update_interval: 1s
+    accuracy_decimals: 2
+    unit_of_measurement: V
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+  
+  #########################
+  # kW + kWh statistics
+  #########################
+
+
+  - platform: template
+    name: "${devicename_lower} Time to sunrise"
+    id: remaining_sunrise_seconds
+    accuracy_decimals: 0
+    update_interval: 2s
+    unit_of_measurement: "s"
+    lambda: |-
+      #include <time.h>
+      auto now = id(sntp_time).now();
+      struct tm sunrise_time;
+      strptime(id(NextSunrise).state.c_str(), "%Y-%m-%d %H:%M:%S", &sunrise_time);
+
+      //ESP_LOGE("TIME", "Aktuální čas: %02d:%02d:%02d", now.hour, now.minute, now.second);
+      //ESP_LOGE("TIME", "Čas východu slunce: %02d-%02d-%02d %02d:%02d:%02d", sunrise_time.tm_year, sunrise_time.tm_mon, sunrise_time.tm_mday, sunrise_time.tm_hour, sunrise_time.tm_min, sunrise_time.tm_sec);
+
+      // Převod času východu slunce na Unix timestamp
+      time_t sunrise_unix = mktime(&sunrise_time);
+
+      //ESP_LOGE("TIME", "Unix timestamp času východu slunce: %ld", sunrise_unix);
+
+      // Získání Unix timestampu pro aktuální čas
+      uint32_t now_unix = now.timestamp;
+
+      //ESP_LOGE("TIME", "Unix timestamp aktuálního času: %u", now_unix);
+      
+      if (now_unix <= sunrise_unix) {
+        // Svítání ještě nezačalo nebo právě začíná
+        int remaining_seconds = sunrise_unix - now_unix;
+
+        // Will SOC Last to sunrise?
+        if(id(TimeToDischargeSeconds).state > remaining_seconds) {
+          int hours = remaining_seconds / 3600;
+          int minutes = (remaining_seconds % 3600) / 60;
+          int seconds = remaining_seconds % 60;
+           String message = "Yes, + " + String(hours)+"h"+String(minutes)+"m";
+          id(SOCLastToSunrise).publish_state(message.c_str());
+        }
+        else {
+          id(SOCLastToSunrise).publish_state("No");
+        }
+
+        return remaining_seconds;
+      } else {
+        // Svítání již proběhlo, návrat nuly
+        return 0;
+        id(SOCLastToSunrise).publish_state("I just dont know.");
+      } 
+
+  - platform: template
+    name: "${devicename_lower} Time to discharge hours"
+    id: TimeToDischargeHours
+    update_interval: 2s
+    accuracy_decimals: 2
+    unit_of_measurement: h
+    lambda: |-
+      // Get actual power from the batteries.
+      // Suppose its always positive, otherwise flush the value
+      float BatteryPower = id(DischargingPower).state - id(ChargingPower).state;
+      float TimeToDischarge = 0;
+      if(BatteryPower > 0) {
+        // calculation can be valid
+        TimeToDischarge = id(RemainingEnergy).state / BatteryPower;
+      }
+      else {
+        // Mark as infinite
+        TimeToDischarge = 99999; //std::numeric_limits<float>::infinity();
+      }
+      return TimeToDischarge;
+
+  - platform: template
+    name: "${devicename_lower} Time to discharge seconds"
+    id: TimeToDischargeSeconds
+    update_interval: 2s
+    accuracy_decimals: 2
+    unit_of_measurement: s
+    lambda: |-
+      // Get actual power from the batteries.
+      // Suppose its always positive, otherwise flush the value
+      float BatteryPower = id(DischargingPower).state - id(ChargingPower).state;
+      float TimeToDischarge = 0;
+      if(BatteryPower > 0) {
+        // calculation can be valid
+        TimeToDischarge = id(RemainingEnergy).state / BatteryPower;
+        TimeToDischarge *=3600;
+      }
+      else {
+        // Mark as infinite
+        TimeToDischarge = 99999; //std::numeric_limits<float>::infinity();
+      }
+      return TimeToDischarge;
+
+  - platform: template
+    name: "${devicename_lower} Charging power"
+    id: ChargingPower
+    update_interval: 1s
+    accuracy_decimals: 3
+    unit_of_measurement: kW
+    filters:
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 1       
+
+
+    ## Daily charging energy
+  - platform: integration
+    name: "${devicename_lower} Charging energy daily"
+    sensor: ChargingPower 
+    id: ChargingEnergy   
+    state_class: TOTAL_INCREASING
+    device_class: energy     
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    time_unit: h
+    restore: false
+    ## Monthly charging energy
+  - platform: integration
+    name: "${devicename_lower} Charging energy monthly"
+    sensor: ChargingPower 
+    id: ChargingEnergyMonthly  
+    state_class: TOTAL_INCREASING
+    device_class: energy     
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    time_unit: h
+    restore: false
+    ## Total charging energy
+  - platform: integration
+    name: "${devicename_lower} Charging energy total"
+    sensor: ChargingPower 
+    id: ChargingEnergyTotal   
+    state_class: TOTAL_INCREASING
+    device_class: energy     
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    time_unit: h
+    restore: false
+
+    ## Daily discharging energy
+  - platform: integration
+    name: "${devicename_lower} Discharging energy daily"
+    sensor: DischargingPower
+    id: DischargingEnergy
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    time_unit: h
+    restore: false
+    ## Monthly discharging energy
+  - platform: integration
+    name: "${devicename_lower} Discharging energy monthly"
+    sensor: DischargingPower
+    id: DischargingEnergyMonthly
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    time_unit: h
+    restore: false
+    ## Total discharging energy
+  - platform: integration
+    name: "${devicename_lower} Discharging energy total"
+    sensor: DischargingPower
+    id: DischargingEnergyTotal
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    time_unit: h
+    restore: false
+
+
+
+  - platform: template
+    name: "${devicename_lower} EEPROM write counter"
+    id: EEPROMWriteCounter
+    update_interval: 0s
+    accuracy_decimals: 0
+    unit_of_measurement: n
+
+
+  - platform: template
+    name: "${devicename_lower} Discharging power"
+    id: DischargingPower
+    update_interval: 1s
+    accuracy_decimals: 3
+    unit_of_measurement: kW
+    filters:
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 1
+
+  - platform: template
+    name: "${devicename_lower} Remaining energy 2"
+    id: RemainingEnergy
+    lambda: |-
+      return (id(ChargingEnergy).state - id(DischargingEnergy).state);
+    update_interval: 1s
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+
+
+
+
+    #lambda: |-
+    #  //return {std::to_string(id(battery_voltage_real).state)};
+      
+  - platform: template
+    name: "${devicename_lower} AllBattery voltage Raw Atmega"
+    id: allbattery_voltage_raw
+    update_interval: 500ms    
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 15    
+    #lambda: |-
+    #  //return {std::to_string(id(battery_voltage_raw).state)};
+
+  - platform: adc
+    id: "battery_voltage"
+    pin: GPIO34
+    name: "${devicename_lower} Battery voltage ESP"
+    update_interval: 1s
+    raw: false
+    attenuation: 11db
+    accuracy_decimals: 3
+    filters:
+      - calibrate_linear:
+          # Map 0.0 (from sensor) to 0.0 (true value)
+          - ${calibration_first}
+          - ${calibration_second}
+      - offset: -0.0
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 15
+    on_raw_value:
+      lambda: |-
+          id(BatteryVoltageESPRaw).publish_state(x);
+
+  - platform: template
+    name: "${devicename_lower} Battery voltage ESP Raw"
+    id: BatteryVoltageESPRaw
+    update_interval: 1s
+    accuracy_decimals: 3
+    unit_of_measurement: "V"
+    filters:
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 1
+ 
+  #########################
+  # Odpojovac uptime sensor
+  #########################
+    
+  - platform: uptime
+    name: "${devicename_lower} Uptime"
+    id: uptime_sensor
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            state: !lambda |-
+              int seconds = round(id(uptime_sensor).raw_state);
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds /  60;
+              seconds = seconds % 60;
+              return (
+                (days ? to_string(days) + "d " : "") +
+                (hours ? to_string(hours) + "h " : "") +
+                (minutes ? to_string(minutes) + "m " : "") +
+                (to_string(seconds) + "s")
+              ).c_str();
+ 
+
+  #########################
+  # kWH statistics
+  ######################### 
+
+
+  ###############################
+  # Raw wattrouter data from HA
+  ###############################
+  - platform: homeassistant
+    name: "${devicename_lower} Wattrouter0 Phase 1 power"
+    id: Wattrouter0Phase1
+    entity_id: sensor.wattrouter_0_phase_1
+    accuracy_decimals: 2
+    unit_of_measurement: W
+    internal: true
+    filters: 
+      - multiply: 1000
+
+  - platform:  homeassistant
+    name: "${devicename_lower} Wattrouter0 Phase 2 power"
+    entity_id: sensor.wattrouter_0_phase_2
+    id: Wattrouter0Phase2    
+    accuracy_decimals: 2
+    unit_of_measurement: W
+    internal: true    
+    filters: 
+      - multiply: 1000
+
+  - platform:  homeassistant
+    name: "${devicename_lower} Wattrouter0 Phase 3 power"
+    entity_id: sensor.wattrouter_0_phase_3
+    id: Wattrouter0Phase3
+    accuracy_decimals: 2
+    unit_of_measurement: W
+    internal: true    
+    filters: 
+      - multiply: 1000
+
+  ###############################
+  # Copy and get only energy taken
+  ###############################
+  - platform: copy
+    source_id: Wattrouter0Phase1
+    name: "${devicename_lower} Wattrouter 0 Phase 1 power from grid"
+    id: Wattrouter0Phase1PowerFromGrid
+    filters: 
+      - lambda: if(x<=0) { return x; } else {return 0;}
+    internal: true
+  - platform: copy
+    source_id: Wattrouter0Phase2
+    name: "${devicename_lower} Wattrouter 0 Phase 2 power from grid"
+    id: Wattrouter0Phase2PowerFromGrid
+    filters: 
+      - lambda: if(x<=0) { return x; } else {return 0;}
+    internal: true
+  - platform: copy
+    source_id: Wattrouter0Phase3
+    name: "${devicename_lower} Wattrouter 0 Phase 3 power from grid"
+    id: Wattrouter0Phase3PowerFromGrid    
+    filters: 
+      - lambda: if(x<=0) { return x; } else {return 0;}
+    internal: true
+  ###############################
+  # Integration of energy taken
+  ###############################
+
+  - platform: integration
+    name: "${devicename_lower} Wattrouter0 Phase 1 cons. daily"
+    sensor: Wattrouter0Phase1PowerFromGrid
+    id: Wattrouter0Phase1DailyEnergy
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: Wh
+    time_unit: h
+
+  - platform: integration
+    name: "${devicename_lower} Wattrouter0 Phase 2 cons. daily"
+    sensor: Wattrouter0Phase2PowerFromGrid
+    id: Wattrouter0Phase2DailyEnergy
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: Wh
+    time_unit: h
+
+  - platform: integration
+    name: "${devicename_lower} Wattrouter0 Phase 3 cons. daily"
+    sensor: Wattrouter0Phase3PowerFromGrid
+    id: Wattrouter0Phase3DailyEnergy
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: Wh
+    time_unit: h
+
+  ###############################
+  # Sum of true energy taken
+  ###############################
+
+  - platform: template
+    name: "${devicename_lower} Wattrouter0 cons. daily true"
+    id: Wattrouter0PowerFromGridTrue
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: Wh
+    update_interval: 1s
+
+  - platform: copy
+    source_id: Wattrouter0PowerFromGridTrue
+    name: "${devicename_lower} Wattrouter0 cons. daily true 2"
+    id: Wattrouter0PowerFromGridTrue2
+    state_class: TOTAL_INCREASING
+    device_class: energy
+    accuracy_decimals: 2
+    unit_of_measurement: kWh
+    filters:
+      - multiply: 0.001
+
+
+  - platform: template
+    name: "${devicename_lower} CPU Freq"
+    id: CPUFreq
+    accuracy_decimals: 0
+    unit_of_measurement: MHz
+    update_interval: 60s
+    lambda: |-
+        return getCpuFrequencyMhz();
+
+
+
+  #####################################
+  # BAT VOLTAGES
+  #####################################
+  - platform: homeassistant
+    name: bw1-auto-1-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_1_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_1_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_1_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-2-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_2_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_2_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_2_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-3-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_3_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_3_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_3_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-4-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_4_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_4_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_4_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-5-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_5_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_5_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_5_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-6-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_6_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_6_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_6_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-7-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_7_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_7_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_7_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-8-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_8_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_8_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_8_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-9-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_9_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_9_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_9_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-10-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_10_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_10_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_10_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-11-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_11_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_11_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_11_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-13-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_13_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_13_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_13_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-15-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_15_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_15_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_15_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-16-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_16_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_16_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_16_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-17-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_17_lifepo4_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_17_lifepo4_battery_voltage_esp", x);
+    id: bw1_auto_17_lifepo4_battery_voltage_esp
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1_auto_lifepo4_odpojovac_battery_voltage_esp_2 Battery Voltage
+    entity_id: sensor.bw1_auto_lifepo4_odpojovac_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_lifepo4_odpojovac_battery_voltage_esp_2", x);
+    id: bw1_auto_lifepo4_odpojovac_battery_voltage_esp_2
+    internal: true 
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-12-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_12_lifepo4_r2_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_12_lifepo4_r2_battery_voltage_esp", x);
+    id: bw1_auto_12_lifepo4_r2_battery_voltage_esp_2
+    internal: true
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: bw1-auto-14-lifepo4 Battery Voltage
+    entity_id: sensor.bw1_auto_14_lifepo4_r2_battery_voltage_esp
+    on_value:
+      - lambda: id(CheckBatteryVoltage)->execute("bw1_auto_14_lifepo4_r2_battery_voltage_esp", x);
+    id: bw1_auto_14_lifepo4_r2_battery_voltage_esp_2
+    internal: true
+    accuracy_decimals: 2
+
+  #####################################
+  # BAT VOLTAGES END
+  #####################################
+
+  ########################################################
+  ## Determine which battery has the lowest voltage in the packs
+  ########################################################
+  - platform: template
+    name: "${devicename_lower} Lowest Battery Voltage"
+    id: LowestBatteryVoltage
+    lambda: |-
+
+
+      float min = 0;
+
+      min = std::min( \
+        {id(bw1_auto_1_lifepo4_battery_voltage_esp).state, \
+        id(bw1_auto_2_lifepo4_battery_voltage_esp).state, \
+        id(bw1_auto_3_lifepo4_battery_voltage_esp).state, \
+        id(bw1_auto_4_lifepo4_battery_voltage_esp).state, \
+        id(bw1_auto_5_lifepo4_battery_voltage_esp).state, \
+        id(bw1_auto_6_lifepo4_battery_voltage_esp).state, \
+        id(bw1_auto_7_lifepo4_battery_voltage_esp).state, \                                              
+        id(bw1_auto_8_lifepo4_battery_voltage_esp).state, \                                                
+        id(bw1_auto_9_lifepo4_battery_voltage_esp).state, \                                                
+        id(bw1_auto_10_lifepo4_battery_voltage_esp).state, \                                                
+        id(bw1_auto_11_lifepo4_battery_voltage_esp).state, \                                                
+        id(bw1_auto_12_lifepo4_r2_battery_voltage_esp_2).state, \
+        id(bw1_auto_13_lifepo4_battery_voltage_esp).state, \                                                                                        
+        id(bw1_auto_14_lifepo4_r2_battery_voltage_esp_2).state, \ 
+        id(bw1_auto_15_lifepo4_battery_voltage_esp).state, \ 
+        id(bw1_auto_16_lifepo4_battery_voltage_esp).state, \ 
+        id(bw1_auto_17_lifepo4_battery_voltage_esp).state, \ 
+        id(battery_voltage).state});
+
+      return (float) min;
+    update_interval: 2s
+    accuracy_decimals: 3
+    unit_of_measurement: "V"
+
+#####################################
+# BAT SCRIPT for checking border limits of each battery in packs
+#####################################
+script:
+  - id: CheckBatteryVoltage
+    mode: single
+    parameters: 
+      battery: string
+      voltage: float
+    then:
+      - lambda: |-
+            ESP_LOGD("main", " %s", "CheckBatteryVoltage script called");     
+          
+            if(voltage>3.65) {
+              // Turn off all charging gates
+              ESP_LOGD("main", "%s Voltage is ABOVE 3.65V, turn off charging_gate_1, got %fV", battery.c_str(), voltage); 
+              id(ChargingGate).turn_off();
+              // Inform over Telegram
+              id(mqtt_cryptobastard).publish("TelegramCB/message", "[Autodilna Odpojovac] Vypnuti CHARGING_GATE v dusledku -> nejaky clanek napeti > 3.65"); 
+            }                                         
+            else if(voltage<3.10) {
+              // Turn off all discharging
+              ESP_LOGD("main", "%s Voltage is BELLOW 2.95V, turn off all discharging gates, got %fV", battery.c_str(), voltage); 
+              id(DischargingGate).turn_off();   
+              id(mqtt_cryptobastard).publish("TelegramCB/message", "[Autodilna Odpojovac] vypnuti vybijeni v dusledku -> nejaky clanek napeti < 2.90");               
+            }
+            else {
+              ESP_LOGD("main", "%s Voltage is in SAFE range, %fV", battery.c_str(), voltage);    
+            }
+
+
+text_sensor:
+  ########################################################
+  ## Some debug bullshits
+  ########################################################
+  - platform: version
+    name: "${devicename_lower} ESPHome Version"
+
+  - platform: template
+    name: "${devicename_lower} Uptime 2"
+    id: uptime_human
+    icon: mdi:clock-start        
+
+    ########################################################
+    ## State of balancing of the odpojovac 
+    ########################################################
+  - platform: template
+    name: "${devicename_lower} Balancing status"
+    id: balancing_status
+    update_interval: 1s
+
+
+  - platform: sun
+    name: "${devicename_lower} Next sunrise"
+    id: NextSunrise
+    type: sunrise   
+    format: "%Y-%m-%d %H:%M:%S" 
+
+  - platform: template
+    name: "${devicename_lower} SOC Last to sunrise?"
+    id: SOCLastToSunrise
+    update_interval: 2s
+
+  - platform: template
+    name: "${devicename_lower} Time to discharge 2"
+    id: TimeToDischargeFormatted
+    update_interval: 2s
+    lambda: |-
+      char buffer[9]; // HH:mm:ss + null terminator
+      uint32_t seconds = id(TimeToDischargeSeconds).state;
+      int hours = seconds / 3600;
+      int minutes = (seconds % 3600) / 60;
+      int secs = seconds % 60;
+      snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", hours, minutes, secs);
+      return {buffer};
+
+
+#########################
+# DISPLAY
+#########################    
+
+font:
+  - file: 'AirbusMCDUa.ttf'
+    id: font1
+    size: 18
+  - file: 'AirbusMCDUa.ttf'
+    id: font2
+    size: 15
+  - file: 'AirbusMCDUa.ttf'
+    id: font3
+    size: 10
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    id: PrimaryDisplay
+    pages:
+      - id: page1
+        lambda: |-
+          if (id(battery_voltage).state > 3.62) {
+            it.print(0, 0, id(font2), "HIGH VOLTAGE"); 
+          } 
+          else if(id(battery_voltage).state < 2.8) { 
+            it.print(0, 0, id(font2), "LOW VOLTAGE"); 
+          }
+
+
+
+          it.print(0, 20, id(font3), "BW1-AUTO-LIFEPO4"); 
+          it.print(0, 30, id(font3), "ODPOJOVAC"); 
+          it.printf(0, 45, id(font1), "VBAT: %.2f V", id(battery_voltage).state);      
+          //it.printf(0, 40, id(font2), "%.1f,", id(dallas_1).state);
+

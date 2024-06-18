@@ -1,0 +1,89 @@
+esphome:
+  name: esp32s2test
+
+esp32:
+  board: lolin_s2_mini
+  variant: esp32s2
+#  framework:
+#    type: esp-idf
+
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "PV Control 1"
+    password: "hFG17m6QWM9r"
+
+web_server:
+  port: 80
+  local: true
+
+# Enable logging
+logger:
+  baud_rate: 0
+  
+#mqtt:
+#  broker: net.ad.kolins.cz
+#  discovery: true      
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+
+
+sensor:
+
+  - platform: wifi_signal
+    name: "ESP32-S2 RSSI"
+    update_interval: 5s
+
+# -----------------------Outputs-------------------
+
+switch:
+
+  - platform: gpio
+    id: pvctrl1_relay1
+    name: "PV Control Relay 1"  
+    pin: GPIO4
+    inverted: true
+
+  - platform: gpio
+    id: pvctrl1_relay2
+    name: "PV Control Relay 2"  
+    pin: GPIO16
+    inverted: true
+
+  - platform: gpio
+    id: pvctrl1_relay3
+    name: "PV Control Relay 3"  
+    pin: GPIO17
+    inverted: true
+
+  - platform: gpio
+    id: pvctrl1_relay4
+    name: "PV Control Relay 4"  
+    pin: GPIO5
+    inverted: true
+
+  - platform: gpio
+    id: pvctrl1_relay5
+    name: "PV Control Relay 5"  
+    pin: GPIO18
+    inverted: true
+
+  - platform: gpio
+    id: pvctrl1_relay6
+    name: "PV Control Relay 6"  
+    pin: GPIO19
+    inverted: true
+
+
+
