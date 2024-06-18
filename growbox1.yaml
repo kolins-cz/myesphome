@@ -1,0 +1,73 @@
+esphome:
+  name: growbox1
+  platform: ESP8266
+  board: d1_mini
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+web_server:
+  port: 80
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+
+switch:
+
+  - platform: gpio
+    id: "growbox_relay_1"
+    name: "Growbox Light"  
+    pin: D0
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_2"
+    name: "Growbox Water Pump"  
+    pin: D1
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_3"
+    name: "Growbox Air Pump"  
+    pin: D2
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_4"
+    name: "Growbox Ventilation"  
+    pin: D3
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_5"
+    name: "Growbox Fan"  
+    pin: D4
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_6"
+    name: "Growbox Heater"  
+    pin: D5
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_7"
+    name: "Growbox UV Lamp"  
+    pin: D6
+    inverted: yes
+
+  - platform: gpio
+    id: "growbox_relay_8"
+    name: "Growbox Sensor Module" 
+    pin: D7
+    inverted: yes

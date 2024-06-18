@@ -1,0 +1,55 @@
+#2C:F4:32:4B:06:9C
+esphome:
+  name: "environment-outside"
+  platform: ESP8266
+  board: d1_mini
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Air-Pressure Fallback Hotspot"
+    password: "tV9Wc1zs6PDf"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+
+i2c:
+  sda: D2
+  scl: D1
+  scan: false
+
+sensor:
+  - platform: bmp085
+    temperature:
+      name: "Outside Temperature (BMP180)"
+    pressure:
+      name: "Outside Pressure"
+    update_interval: 60s
+    
+    
+  - platform: sht3xd
+    temperature:
+      name: "Outside Temperature (SHT3x)"
+    humidity:
+      name: "Outside Humidity"
+    address: 0x44
+    update_interval: 15s
+  
+  
+  - platform: wifi_signal
+    name: "Outside RSSI"
+    update_interval: 15s

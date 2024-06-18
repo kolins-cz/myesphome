@@ -1,0 +1,65 @@
+esphome:
+  name: thermostat1
+  platform: ESP8266
+  board: d1_mini
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Thermostat1 Fallback Hotspot"
+    password: "g1n3oXKQd29D"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+  
+time:
+  - platform: homeassistant
+    id: esptime
+
+# Example configuration entry
+sensor:
+  - platform: sht3xd
+    temperature:
+      id: liv_room_temp_sens
+      name: "Living Room Temperature"
+      
+    humidity:
+      id: liv_room_hum_sens
+      name: "Living Room Humidity"
+      
+    address: 0x44
+    update_interval: 15s
+    
+font:
+  - file: 'slkscr.ttf'
+    id: font1
+    size: 8
+
+
+i2c:
+  sda: D2
+  scl: D1
+  scan: false
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 64x48"
+    reset_pin: D0
+    address: 0x3C
+    lambda: |-
+      it.printf(0, 0, id(font1),TextAlign::BASELINE_LEFT, "T: %.1f°C", id(liv_room_temp_sens).state);
+      it.printf(0, 20, id(font1),TextAlign::BASELINE_LEFT, "H: %.1f%", id(liv_room_hum_sens).state);
+      

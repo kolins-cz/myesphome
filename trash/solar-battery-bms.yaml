@@ -1,0 +1,31 @@
+esphome:
+  name: solar-battery-bms
+  friendly_name: solar-battery-bms
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "VRd+H5dxiQTpBTSscMfNUrDjRVQn6zmRdBu1hxZ0UE4="
+
+ota:
+  password: "2cc1f9638287c6c3c03daff08222b839"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Solar-Battery-Bms"
+    password: "FwGKqfjvwiQH"
+
+captive_portal:
+    

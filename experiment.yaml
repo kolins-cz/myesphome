@@ -1,0 +1,30 @@
+esphome:
+  name: experiment
+  friendly_name: experiment
+
+rp2040:
+  board: rpipicow
+  framework:
+    # Required until https://github.com/platformio/platform-raspberrypi/pull/36 is merged
+    platform_version: https://github.com/maxgerhardt/platform-raspberrypi.git
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "RgrWHJDR2ALVxF2VPuQGH4PV/CAjuawzuCpNf/+ISl4="
+
+ota:
+  password: "14f6495cbfc116069b0b3c460941e7f0"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot in case wifi connection fails
+  ap:
+    ssid: "Experiment Fallback Hotspot"
+    password: "hyU2tOvtcbwD"
+    

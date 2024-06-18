@@ -1,0 +1,586 @@
+esphome:
+  name: switchingcabinet
+  platform: ESP32
+  board: esp-wrover-kit
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Switching-Cabinet"
+    password: "hFG17m6QWM9r"
+
+captive_portal:
+
+# Enable logging
+logger:
+  baud_rate: 0
+  
+#mqtt:
+#  broker: net.ad.kolins.cz
+#  discovery: true      
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+
+uart:
+  id: modbus_uart
+  tx_pin: GPIO27
+  rx_pin: GPIO13
+  baud_rate: 9600
+  stop_bits: 1
+  parity: EVEN
+
+modbus:
+  uart_id: modbus_uart
+  flow_control_pin: GPIO14
+  id: modbus1
+
+modbus_controller:
+  - id: inepro380
+    ## the Modbus device addr
+    address: 0x1
+    modbus_id: modbus1
+    #setup_priority: -10
+    command_throttle: 100ms
+    update_interval: 20s
+
+
+
+esp32_ble_tracker:
+
+dallas:
+  - pin: GPIO25
+    update_interval: 20s
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO36
+    name: "Expensive Electricity Tariff"
+    device_class: power
+    filters:
+      - delayed_on: 10ms
+      
+  - platform: gpio
+    pin: 
+      number: GPIO36
+      inverted: True
+    name: "Cheap Electricity Tariff"
+    device_class: power
+    filters:
+      - delayed_on: 10ms
+  
+sensor:
+  - platform: pulse_counter
+    pin: GPIO39
+    name: "Auxiliary Power Meter"
+    update_interval: 10s
+    unit_of_measurement: 'kW'
+# modded to 12800??
+    filters:
+      - multiply: 0.0375
+    state_class: measurement
+
+
+  - platform: wifi_signal
+    name: "Switching Cabinet RSSI"
+    update_interval: 5s
+
+    
+  - platform: dallas
+    address: 0x31000001C8C31928
+    name: "Water Heater Temperature"
+  
+  - platform: dallas
+    address: 0x23000001C8967028
+    name: "Bathroom Temperature"
+# -----------------------INEPRO380-------------------
+  #---voltage---
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l1_voltage
+    name: "Inepro PRO380 L1 Voltage"
+    address: 0x5002
+    unit_of_measurement: "V"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    device_class: voltage
+  
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l2_voltage
+    name: "Inepro PRO380 L2 Voltage"
+    address: 0x5004
+    unit_of_measurement: "V"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    device_class: voltage
+  
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l3_voltage
+    name: "Inepro PRO380 L3 Voltage"
+    address: 0x5006
+    unit_of_measurement: "V"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    device_class: voltage
+
+  # #---frequency---
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_grid_frequency
+  #   name: "Inepro PRO380 Grid Frequency"
+  #   address: 0x5008
+  #   unit_of_measurement: "Hz"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+  #   skip_updates: 20
+
+  #---current---
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l1_current
+    name: "Inepro PRO380 L1 Current"
+    address: 0x500c
+    unit_of_measurement: "A"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    device_class: current
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l2_current
+    name: "Inepro PRO380 L2 Current"
+    address: 0x500e
+    unit_of_measurement: "A"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    device_class: current
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l3_current
+    name: "Inepro PRO380 L3 Current"
+    address: 0x5010
+    unit_of_measurement: "A"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    device_class: current
+
+  #---active power---
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_total_active_power
+    name: "Inepro PRO380 Total Active Power"
+    address: 0x5012
+    unit_of_measurement: "kW"
+    register_type: holding
+    register_count: 2
+    accuracy_decimals: 3
+    value_type: FP32
+    device_class: power
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l1_active_power
+    name: "Inepro PRO380 L1 Active Power"
+    address: 0x5014
+    unit_of_measurement: "kW"
+    register_type: holding
+    accuracy_decimals: 3
+    value_type: FP32
+    device_class: power
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l2_active_power
+    name: "Inepro PRO380 L2 Active Power"
+    address: 0x5016
+    unit_of_measurement: "kW"
+    register_type: holding
+    accuracy_decimals: 3
+    value_type: FP32
+    device_class: power
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l3_active_power
+    name: "Inepro PRO380 L3 Active Power"
+    address: 0x5018
+    unit_of_measurement: "kW"
+    register_type: holding
+    accuracy_decimals: 3
+    value_type: FP32
+    device_class: power
+  
+  # #---reactive power---
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_total_reactive_power
+  #   name: "Inepro PRO380 Total Reactive Power"
+  #   address: 0x501a
+  #   unit_of_measurement: "kvar"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l1_reactive_power
+  #   name: "Inepro PRO380 L1 Reactive Power"
+  #   address: 0x501c
+  #   unit_of_measurement: "kvar"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l2_reactive_power
+  #   name: "Inepro PRO380 L2 Reactive Power"
+  #   address: 0x501e
+  #   unit_of_measurement: "kvar"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l3_reactive_power
+  #   name: "Inepro PRO380 L3 Reactive Power"
+  #   address: 0x5020
+  #   unit_of_measurement: "kvar"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # #---apparent power---
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_total_apparent_power
+  #   name: "Inepro PRO380 Total Apparent Power"
+  #   address: 0x5022
+  #   unit_of_measurement: "kVA"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l1_apparent_power
+  #   name: "Inepro PRO380 L1 Apparent Power"
+  #   address: 0x5024
+  #   unit_of_measurement: "kVA"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l2_apparent_power
+  #   name: "Inepro PRO380 L2 Apparent Power"
+  #   address: 0x5026
+  #   unit_of_measurement: "kVA"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l3_apparent_power
+  #   name: "Inepro PRO380 L3 Apparent Power"
+  #   address: 0x5028
+  #   unit_of_measurement: "kVA"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # #---power factor---
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_total_power_factor
+  #   name: "Inepro PRO380 Total Power Factor"
+  #   address: 0x502a
+  #   unit_of_measurement: ""
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l1_power_factor
+  #   name: "Inepro PRO380 L1 Power Factor"
+  #   address: 0x502c
+  #   unit_of_measurement: ""
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l2_power_factor
+  #   name: "Inepro PRO380 L2 Power Factor"
+  #   address: 0x502e
+  #   unit_of_measurement: ""
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l3_power_factor
+  #   name: "Inepro PRO380 L3 Power Factor"
+  #   address: 0x5030
+  #   unit_of_measurement: ""
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+
+  #---total statistics
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_total_active_energy
+    name: "Inepro PRO380 Total Active Energy"
+    address: 0x6000
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+    state_class: total_increasing
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_total_active_energy_tariff1
+    name: "Inepro PRO380 Total Active Energy Tariff 1"
+    address: 0x6002
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_total_active_energy_tariff2
+    name: "Inepro PRO380 Total Active Energy Tariff 2"
+    address: 0x6004
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l1_total_active_energy
+  #   name: "Inepro PRO380 L1 Total Active Energy"
+  #   address: 0x6006
+  #   unit_of_measurement: "kWh"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+  #   skip_updates: 20
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l2_total_active_energy
+  #   name: "Inepro PRO380 L2 Total Active Energy"
+  #   address: 0x6006
+  #   unit_of_measurement: "kWh"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+  #   skip_updates: 20
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_l3_total_active_energy
+  #   name: "Inepro PRO380 L3 Total Active Energy"
+  #   address: 0x6008
+  #   unit_of_measurement: "kWh"
+  #   register_type: holding
+  #   accuracy_decimals: 2
+  #   value_type: FP32
+  #   skip_updates: 20
+
+  # - platform: modbus_controller
+  #   modbus_controller_id: inepro380
+  #   id: inepro380_active_tariff
+  #   name: "Inepro PRO380 Active Tariff"
+  #   address: 0x6048
+  #   unit_of_measurement: ""
+  #   register_type: holding
+  #   value_type: S_WORD
+  #   skip_updates: 20
+
+  #-----------------reverse energy-------------------
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_reverse_energy
+    name: "Inepro PRO380 Reverse Active Energy"
+    address: 0x6018
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+    state_class: total_increasing
+
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l1_active_reverse_energy
+    name: "Inepro PRO380 Reverse L1 Active Energy"
+    address: 0x601e
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l2_active_reverse_energy
+    name: "Inepro PRO380 Reverse L2 Active Energy"
+    address: 0x6020
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+
+  - platform: modbus_controller
+    modbus_controller_id: inepro380
+    id: inepro380_l3_active_reverse_energy
+    name: "Inepro PRO380 Reverse L3 Active Energy"
+    address: 0x6022
+    unit_of_measurement: "kWh"
+    register_type: holding
+    accuracy_decimals: 2
+    value_type: FP32
+    skip_updates: 20
+    device_class: energy
+
+
+# -----------------------Xioami BLE thermometers-------------------
+  
+  - platform: xiaomi_lywsdcgq
+    mac_address: "58:2d:34:33:a9:d2"
+    temperature:
+      name: "Lab Temperature"
+    humidity:
+      name: "Lab Humidity"
+    battery_level:
+      name: "Lab Battery Level"
+
+  - platform: xiaomi_lywsdcgq
+    mac_address: "58:2d:34:33:67:93"
+    temperature:
+      name: "3D Printer Temperature"
+    humidity:
+      name: "3D Printer Humidity"
+    battery_level:
+      name: "3D Printer Battery Level"
+
+  - platform: xiaomi_lywsdcgq
+    mac_address: "58:2d:34:33:68:d1"
+    temperature:
+      name: ":d1 Temperature"
+    humidity:
+      name: ":d1 Humidity"
+    battery_level:
+      name: ":d1 Battery Level"
+
+  - platform: xiaomi_lywsdcgq
+    mac_address: "58:2d:34:33:68:42"
+    temperature:
+      name: "Fillament Box Temperature"
+    humidity:
+      name: "Fillament Box Humidity"
+    battery_level:
+      name: "Fillament Box Battery Level"
+
+# -----------------------Outputs-------------------
+
+switch:
+
+  - platform: gpio
+    name: "Heater Bathroom"  
+    pin: GPIO23
+
+
+  - platform: gpio
+    name: "Heater Living Room 1"  
+    pin: GPIO22
+
+
+  - platform: gpio
+    name: "Heater Living Room 2"  
+    pin: GPIO21
+
+
+  - platform: gpio
+    name: "Heater Lab"  
+    pin: GPIO19
+
+
+  - platform: gpio
+    name: "OC Output 5"  
+    pin: GPIO18
+
+
+  - platform: gpio
+    name: "OC Output 6"  
+    pin: GPIO5
+
+
+  - platform: gpio
+    name: "OC Output 7"  
+    pin: GPIO17
+
+
+  - platform: gpio
+    name: "OC Output 8" 
+    pin: GPIO16
+
+
+  - platform: gpio
+    name: "Water Heater"
+    pin: GPIO4
+    restore_mode: RESTORE_DEFAULT_ON 
+
+    
+  - platform: gpio
+    name: "OC Output 10" 
+    pin: GPIO2
+
+
+
+
+
+
+

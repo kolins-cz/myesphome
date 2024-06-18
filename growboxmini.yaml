@@ -1,0 +1,159 @@
+esphome:
+  name: growboxmini
+
+  on_boot:
+    - cover.close: irrigation
+
+web_server:
+  port: 80
+  
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: "2e8d21b0056553717bea0f9ace162b10"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+esp32_ble_tracker:
+
+dallas:
+  - pin: GPIO14
+  
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: false
+
+# Example configuration entry
+output:
+  - platform: ledc
+    pin: GPIO19
+    frequency: 2441Hz
+    id: pwmlight1
+    channel: 0
+
+  - platform: ledc
+    frequency: 25kHz
+    pin: GPIO16
+    id: pwmfan1
+    channel: 2
+
+  - platform: ledc
+    frequency: 50Hz
+    pin: GPIO0
+    id: pwmservo1
+    channel: 4
+    
+  - platform: template
+    id: pwmdebug1
+    type: float
+    write_action:
+      - output.set_level:
+          id: pwmlight1
+          level: !lambda return state;
+      - logger.log:
+          format: "The Monochromatic Light wants to write value %.3f to LEDC based PWM generator"
+          #args: [ 'id(pwmdebug1).value']
+          args: [ 'state']
+switch:
+  - platform: gpio
+    id: "minigrowboxpump"
+    name: "Mini Growbox Water Pump"  
+    pin: 23
+    
+
+light:
+  - platform: monochromatic
+    output: pwmdebug1
+    name: "Mini Growbox Light"
+    default_transition_length: 1s
+    #gamma_correct: 1
+    
+fan:
+  - platform: speed
+    output: pwmfan1
+    name: "Mini Growbox Fan"
+    
+    
+sensor:
+  - platform: pulse_counter
+    pin: GPIO4
+    name: "Mini Growbox Fan RPM"
+    unit_of_measurement: 'rpm'
+    update_interval: 5s
+    filters:
+      - multiply: 0.5  # (two pulses per revolution)
+  
+  - platform: dallas
+    address: 0xc73c6df648cf1828
+    name: "Mini Growbox LED Temperature"  
+    
+  - platform: adc
+    pin: GPIO36
+    name: "Mini Growbox Soil Humidity 1"
+    update_interval: 2s
+    attenuation: auto
+  
+    
+  - platform: sht3xd
+    temperature:
+      name: "Mini Growbox Temperature"
+    humidity:
+      name: "Mini Growbox Humidity"
+    update_interval: 15s    
+  
+  - platform: xiaomi_hhccjcy01
+    mac_address: 'c4:7c:8d:6c:09:d6'
+    temperature:
+      name: "Flora Sensor Temperature"
+    moisture:
+      name: "Flora Sensor Moisture"
+    illuminance:
+      name: "Flora Sensor Illuminance"
+    conductivity:
+      name: "Flora Sensor Soil Conductivity"
+    battery_level:
+      name: "Flora Sensor Battery Level"
+  
+  
+    
+# Example configuration entry
+servo:
+  - id: my_servo
+    output: pwmservo1
+    auto_detach_time: 1s
+    transition_length: 1s
+
+
+cover:
+   - platform: template
+     name: "Mini Grow Box Irrigation Valve"
+     id: irrigation
+     
+   
+     open_action:
+       - servo.write:
+           id: my_servo
+           level: -45%
+     close_action:
+       - servo.write:
+           id: my_servo
+           level: 60%
+
+     optimistic: true
+     
+    
+

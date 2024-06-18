@@ -1,0 +1,63 @@
+esphome:
+  name: camera1
+  platform: ESP32
+  #board: m5stack-timer-cam
+  #board: esp-wrover-kit
+  board: esp32dev
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  password: !secret ota_password
+
+
+wifi:
+  ssid: "kolin"
+  password: "hovnokleslo"
+
+# Example configuration entry
+esp32_camera:
+  external_clock:
+    pin: GPIO27
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO25
+    scl: GPIO23
+  data_pins: [GPIO32, GPIO35, GPIO34, GPIO5, GPIO39, GPIO18, GPIO36, GPIO19]
+  vsync_pin: GPIO22
+  href_pin: GPIO26
+  pixel_clock_pin: GPIO21
+  reset_pin: GPIO15
+
+  # Image settings
+  name: Camera 1
+  # ...
+  resolution: 800x600
+  max_framerate: 2fps
+  idle_framerate: 1fps
+  horizontal_mirror: false
+
+sensor:
+  - platform: adc
+    pin: GPIO38
+    name: "Camera1 Battery Voltage"
+    update_interval: 10s
+    # voltage divider 1.37k over 2.67k
+    attenuation: 11db
+    filters:
+      - multiply: 1.3556
+      
+      
+switch:
+  - platform: gpio
+    pin: GPIO33
+    restore_mode: ALWAYS_ON
+    id: camera1_power_hold
+    name: "Camera 1 Kill Switch"

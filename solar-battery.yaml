@@ -1,0 +1,494 @@
+substitutions:
+  name1: Balancer
+  name2: BMS
+  name3: INA229
+  device_description: "Monitor and control a Heltec/NEEY 4A balancer via bluetooth and JBD BMS via UART, INA229 vis SPI"
+  mac_address: 00:e4:4c:21:cf:55
+  fram_soc_memory: "0x0"
+  fram_soc_memory_bck: "0xa"
+
+  jbd_tx_pin: GPIO16
+  jbd_rx_pin: GPIO17
+  jbd_rx_timeout: 150ms
+
+esphome:
+  name: solar-battery
+  friendly_name: Solar Battery
+  comment: ${device_description}
+  on_boot:
+    priority: 800.0
+    # ...
+    then:
+      - lambda: |-
+
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+#    type: arduino
+
+external_components:
+  - source: github://syssi/esphome-jk-bms@main
+  - source: github://syssi/esphome-jbd-bms@main
+  - source: github://latonita/esphome-ina228@main
+    components: [ina2xx_base, ina2xx_spi]
+    refresh: 0s
+  - source: github://pr#4880
+    components: [ fram, fram_pref ]
+
+wifi:
+  ssid: !secret wifi2_ssid
+  password: !secret wifi2_password
+
+ota:
+  password: !secret ota_password
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: !secret encryption_key
+
+web_server:
+  port: 80
+  local: true
+  ota: false
+  
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Prague
+    servers:
+     - 192.168.10.6
+     - pool.ntp.org
+
+
+
+interval:
+  - interval: 30min
+    then:
+      - button.press: retrieve_settings_button
+  - interval: 500ms
+    then:
+
+# mqtt:
+#   broker: !secret mqtt_host
+#   username: !secret mqtt_username
+#   password: !secret mqtt_password
+#   id: mqtt_client
+
+spi:
+  - id: spi0
+    clk_pin: GPIO27
+    mosi_pin: GPIO26
+    miso_pin: GPIO25
+  
+i2c:
+  id: iic
+  sda: GPIO21
+  scl: GPIO22
+  frequency: 400kHz
+
+
+fram:
+  id: fram_1
+  i2c_id: iic
+  address: 0x50
+  type: FRAM11
+  size: 2KiB
+
+uart:
+  - id: uart_0
+    baud_rate: 9600
+    tx_pin: ${jbd_tx_pin}
+    rx_pin: ${jbd_rx_pin}
+
+
+jbd_bms:
+  - id: bms1
+    update_interval: 1s
+    rx_timeout: ${jbd_rx_timeout}
+
+
+esp32_ble_tracker:
+  on_ble_advertise:
+    then:
+      - lambda: |-
+          if (x.get_name().rfind("GW-", 0) == 0) {
+            ESP_LOGI("ble_adv", "New Heltec/NEEY balancer found");
+            ESP_LOGI("ble_adv", "  Name: %s", x.get_name().c_str());
+            ESP_LOGI("ble_adv", "  MAC address: %s", x.address_str().c_str());
+            ESP_LOGD("ble_adv", "  Advertised service UUIDs:");
+            for (auto uuid : x.get_service_uuids()) {
+              ESP_LOGD("ble_adv", "    - %s", uuid.to_string().c_str());
+            }
+          }
+
+ble_client:
+  - mac_address: ${mac_address}
+    id: client0
+
+heltec_balancer_ble:
+  - ble_client_id: client0
+    throttle: 5s
+    id: bms0
+
+binary_sensor:
+#balancer
+  - platform: heltec_balancer_ble
+    balancing:
+      name: "${name1} balancing"
+    online_status:
+      name: "${name1} online status"
+#BMS
+  - platform: jbd_bms
+    jbd_bms_id: bms1
+    balancing:
+      name: "${name2} balancing"
+    charging:
+      name: "${name2} charging"
+    discharging:
+      name: "${name2} discharging"
+    online_status:
+      name: "${name2} online status"
+
+button:
+  - platform: heltec_balancer_ble
+    retrieve_settings:
+      name: "${name1} retrieve settings"
+      id: retrieve_settings_button
+    retrieve_device_info:
+      name: "${name1} retrieve device info"
+    retrieve_factory_defaults:
+      name: "${name1} retrieve factory defaults"
+
+  - platform: template
+    name: "${name3} Reset counters"
+    on_press:
+      - lambda: "id(ina22x).reset_energy_counters();"
+
+
+number:
+  - platform: heltec_balancer_ble
+    cell_count:
+      name: "${name1} cell count"
+    balance_trigger_voltage:
+      name: "${name1} balance trigger voltage"
+    max_balance_current:
+      name: "${name1} max balance current"
+    balance_sleep_voltage:
+      name: "${name1} balance sleep voltage"
+    balance_start_voltage:
+      name: "${name1} balance start voltage"
+    nominal_battery_capacity:
+      name: "${name1} nominal battery capacity"
+  
+  - platform: template
+    id: chosen_batt_capacity
+    name: "${name3} nominal battery capacity"
+    min_value: 1
+    max_value: 500
+    optimistic: true
+    step: 1
+    unit_of_measurement: Ah
+
+
+sensor:
+#-------------balancer-------------------------------------------------------------------
+  - platform: heltec_balancer_ble
+    min_cell_voltage:
+      name: "${name1} min cell voltage"
+    max_cell_voltage:
+      name: "${name1} max cell voltage"
+    min_voltage_cell:
+      name: "${name1} min voltage cell"
+    max_voltage_cell:
+      name: "${name1} max voltage cell"
+    delta_cell_voltage:
+      name: "${name1} delta cell voltage"
+    average_cell_voltage:
+      name: "${name1} average cell voltage"
+    cell_voltage_1:
+      name: "${name1} cell voltage 1"
+    cell_voltage_2:
+      name: "${name1} cell voltage 2"
+    cell_voltage_3:
+      name: "${name1} cell voltage 3"
+    cell_voltage_4:
+      name: "${name1} cell voltage 4"
+    cell_voltage_5:
+      name: "${name1} cell voltage 5"
+    cell_voltage_6:
+      name: "${name1} cell voltage 6"
+    cell_voltage_7:
+      name: "${name1} cell voltage 7"
+    cell_voltage_8:
+      name: "${name1} cell voltage 8"
+    cell_voltage_9:
+      name: "${name1} cell voltage 9"
+    cell_voltage_10:
+      name: "${name1} cell voltage 10"
+    cell_voltage_11:
+      name: "${name1} cell voltage 11"
+    cell_voltage_12:
+      name: "${name1} cell voltage 12"
+    cell_voltage_13:
+      name: "${name1} cell voltage 13"
+    cell_voltage_14:
+      name: "${name1} cell voltage 14"
+    cell_voltage_15:
+      name: "${name1} cell voltage 15"
+    cell_voltage_16:
+      name: "${name1} cell voltage 16"
+    cell_voltage_17:
+      name: "${name1} cell voltage 17"
+    cell_voltage_18:
+      name: "${name1} cell voltage 18"
+
+    total_voltage:
+      name: "${name1} total voltage"
+    temperature_sensor_1:
+      name: "${name1} temperature sensor 1"
+    temperature_sensor_2:
+      name: "${name1} temperature sensor 2"
+    total_runtime:
+      name: "${name1} total runtime"
+    balancing_current:
+      name: "${name1} balancing current"
+    # Not implemented
+    # errors_bitmask:
+    #   name: "${name1} errors bitmask"
+    cell_detection_failed_bitmask:
+      name: "${name1} cell detection failed bitmask"
+    cell_overvoltage_bitmask:
+      name: "${name1} cell overvoltage bitmask"
+    cell_undervoltage_bitmask:
+      name: "${name1} cell undervoltage bitmask"
+    cell_polarity_error_bitmask:
+      name: "${name1} cell polarity error bitmask"
+    cell_excessive_line_resistance_bitmask:
+      name: "${name1} cell excessive line resistance bitmask"
+
+#-------------BMS-------------------------------------------------------------------
+  - platform: jbd_bms
+    jbd_bms_id: bms1
+    battery_strings:
+      name: "${name2} battery strings"
+    current:
+      name: "${name2} current"
+    power:
+      name: "${name2} power"
+    charging_power:
+      name: "${name2} charging power"
+    discharging_power:
+      name: "${name2} discharging power"
+    state_of_charge:
+      name: "${name2} state of charge"
+    nominal_capacity:
+      name: "${name2} nominal capacity"
+    charging_cycles:
+      name: "${name2} charging cycles"
+    capacity_remaining:
+      name: "${name2} capacity remaining"
+    battery_cycle_capacity:
+      name: "${name2} battery cycle capacity"
+    total_voltage:
+      name: "${name2} total voltage"
+    average_cell_voltage:
+      name: "${name2} average cell voltage"
+    delta_cell_voltage:
+      name: "${name2} delta cell voltage"
+    min_cell_voltage:
+      name: "${name2} min cell voltage"
+    max_cell_voltage:
+      name: "${name2} max cell voltage"
+    min_voltage_cell:
+      name: "${name2} min voltage cell"
+    max_voltage_cell:
+      name: "${name2} max voltage cell"
+    temperature_1:
+      name: "${name2} temperature 1"
+    temperature_2:
+      name: "${name2} temperature 2"
+    temperature_3:
+      name: "${name2} temperature 3"
+    temperature_4:
+      name: "${name2} temperature 4"
+    temperature_5:
+      name: "${name2} temperature 5"
+    temperature_6:
+      name: "${name2} temperature 6"
+    cell_voltage_1:
+      name: "${name2} cell voltage 1"
+    cell_voltage_2:
+      name: "${name2} cell voltage 2"
+    cell_voltage_3:
+      name: "${name2} cell voltage 3"
+    cell_voltage_4:
+      name: "${name2} cell voltage 4"
+    cell_voltage_5:
+      name: "${name2} cell voltage 5"
+    cell_voltage_6:
+      name: "${name2} cell voltage 6"
+    cell_voltage_7:
+      name: "${name2} cell voltage 7"
+    cell_voltage_8:
+      name: "${name2} cell voltage 8"
+    cell_voltage_9:
+      name: "${name2} cell voltage 9"
+    cell_voltage_10:
+      name: "${name2} cell voltage 10"
+    cell_voltage_11:
+      name: "${name2} cell voltage 11"
+    cell_voltage_12:
+      name: "${name2} cell voltage 12"
+    cell_voltage_13:
+      name: "${name2} cell voltage 13"
+    cell_voltage_14:
+      name: "${name2} cell voltage 14"
+    cell_voltage_15:
+      name: "${name2} cell voltage 15"
+    cell_voltage_16:
+      name: "${name2} cell voltage 16"
+    cell_voltage_17:
+      name: "${name2} cell voltage 17"
+    cell_voltage_18:
+      name: "${name2} cell voltage 18"
+    cell_voltage_19:
+      name: "${name2} cell voltage 19"
+    cell_voltage_20:
+      name: "${name2} cell voltage 20"
+    cell_voltage_21:
+      name: "${name2} cell voltage 21"
+    cell_voltage_22:
+      name: "${name2} cell voltage 22"
+    cell_voltage_23:
+      name: "${name2} cell voltage 23"
+    cell_voltage_24:
+      name: "${name2} cell voltage 24"
+    cell_voltage_25:
+      name: "${name2} cell voltage 25"
+    cell_voltage_26:
+      name: "${name2} cell voltage 26"
+    cell_voltage_27:
+      name: "${name2} cell voltage 27"
+    cell_voltage_28:
+      name: "${name2} cell voltage 28"
+    cell_voltage_29:
+      name: "${name2} cell voltage 29"
+    cell_voltage_30:
+      name: "${name2} cell voltage 30"
+    cell_voltage_31:
+      name: "${name2} cell voltage 31"
+    cell_voltage_32:
+      name: "${name2} cell voltage 32"
+    operation_status_bitmask:
+      name: "${name2} operation status bitmask"
+    errors_bitmask:
+      name: "${name2} errors bitmask"
+    balancer_status_bitmask:
+      name: "${name2} balancer status bitmask"
+    software_version:
+      name: "${name2} software version"
+    
+
+#-------------INA229-------------------------------------------------------------------
+  - platform: ina2xx_spi
+    id: ina22x
+    spi_id: spi0
+    cs_pin: GPIO33
+    update_interval: 1s
+    shunt_resistance: 0.0001 ohm
+    max_current: 400 A
+    adc_range: 1
+    adc_time: 4120 us
+    adc_averaging: 128
+    temperature_coefficient: 0
+
+    current:
+      id: ina22x_current
+      name: "${name3} Current"
+      accuracy_decimals: 2
+
+    power:
+      id: ina22x_pwr_abs
+      internal: true
+      name: "${name3} Power Abs"
+      accuracy_decimals: 0
+
+    shunt_voltage:
+      name: "${name3} Shunt Voltage"
+      accuracy_decimals: 6
+
+    bus_voltage:
+      name: "${name3} Bus Voltage"
+      accuracy_decimals: 2
+    temperature:
+      name: "${name3} Temperature"
+      accuracy_decimals: 1
+    energy:
+      name: "${name3} Energy"
+      accuracy_decimals: 1
+    
+    charge:
+      name: "${name3} Charge"
+      accuracy_decimals: 1
+    charge_coulombs:
+      name: "${name3} Charge (Coulombs)"
+      accuracy_decimals: 1
+  
+  - platform: template
+    name: "${name3} Power"
+    unit_of_measurement: "W"
+    accuracy_decimals: 0
+    update_interval: 1s
+    lambda: |-
+      float curr = id(ina22x_current).state;
+      float powr = id(ina22x_pwr_abs).state;
+      if (curr < 0) {
+        powr = powr * -1;
+        return powr;
+      } else {
+        return powr;
+      }
+
+
+switch:
+#balancer
+  - platform: heltec_balancer_ble
+    balancer:
+      name: "${name1} balancer"
+
+#BMS
+  - platform: jbd_bms
+    jbd_bms_id: bms1
+    charging:
+      name: "${name2} charging"
+    discharging:
+      name: "${name2} discharging"
+
+text_sensor:
+#balancer
+  - platform: heltec_balancer_ble
+    # Not implemented
+    # errors:
+    #   name: "${name1} errors"
+    operation_status:
+      name: "${name1} operation status"
+    total_runtime_formatted:
+      name: "${name1} total runtime formatted"
+    buzzer_mode:
+      name: "${name1} buzzer mode"
+    battery_type:
+      name: "${name1} battery type"
+#BMS
+  - platform: jbd_bms
+    jbd_bms_id: bms1
+    errors:
+      name: "${name2} errors"
+    operation_status:
+      name: "${name2} operation status"
+    device_model:
+      name: "${name2} device model"
+
