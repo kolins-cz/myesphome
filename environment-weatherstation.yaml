@@ -42,7 +42,7 @@ sensor:
     name: "Weather Station Temperature of Light Sensor"
 
 
-  - platform: bme280
+  - platform: bme280_i2c
     temperature:
       name: "Weather Station Temperature (BME280)"
     pressure:
