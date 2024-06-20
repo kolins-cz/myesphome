@@ -64,6 +64,7 @@ binary_sensor:
   - platform: gpio
     pin:
       number: GPIO36
+      allow_other_uses: true
     name: "Expensive Electricity Tariff"
     device_class: power
     filters:
@@ -72,6 +73,7 @@ binary_sensor:
   - platform: gpio
     pin: 
       number: GPIO36
+      allow_other_uses: true
       inverted: True
     name: "Cheap Electricity Tariff"
     device_class: power

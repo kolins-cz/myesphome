@@ -56,6 +56,7 @@ wifi:
 
 ota:
   password: !secret ota_password
+
 logger:
 #  level: WARN
 
@@ -73,8 +74,8 @@ time:
     id: sntp_time
     timezone: Europe/Prague
     servers:
-     - 192.168.10.6
-     - pool.ntp.org
+      - 192.168.10.6
+      - pool.ntp.org
 
 
 
@@ -175,7 +176,7 @@ button:
       name: "${name1} retrieve device info"
     retrieve_factory_defaults:
       name: "${name1} retrieve factory defaults"
- 
+
   - platform: template
     name: "${name3} Reset counters"
     on_press:
@@ -456,39 +457,26 @@ sensor:
     adc_averaging: 128
     temperature_coefficient: 0
 
+#---ina229 voltage
+    bus_voltage:
+      id: ina22x_voltage
+      name: "${name3} Bus Voltage"
+      accuracy_decimals: 2
+
+#---ina229 current
     current:
       id: ina22x_current
       name: "${name3} Current"
       accuracy_decimals: 2
 
+#---ina229 power absolute
     power:
       id: ina22x_pwr_abs
       internal: true
       name: "${name3} Power Abs"
       accuracy_decimals: 0
 
-    shunt_voltage:
-      name: "${name3} Shunt Voltage"
-      accuracy_decimals: 6
-
-    bus_voltage:
-      name: "${name3} Bus Voltage"
-      accuracy_decimals: 2
-    temperature:
-      name: "${name3} Temperature"
-      accuracy_decimals: 1
-    energy:
-      name: "${name3} Energy"
-      accuracy_decimals: 1
-    
-    charge:
-      name: "${name3} Charge"
-      accuracy_decimals: 1
-    charge_coulombs:
-      id: ina22x_coloumbs
-      name: "${name3} Charge (Coulombs)"
-      accuracy_decimals: 1
-  
+#---ina229 power signed
   - platform: template
     name: "${name3} Power"
     unit_of_measurement: "W"
@@ -503,6 +491,33 @@ sensor:
       } else {
         return powr;
       }
+
+#---ina229 energy
+    energy:
+      name: "${name3} Energy"
+      accuracy_decimals: 1
+
+#---ina229 charge
+    charge:
+      name: "${name3} Charge"
+      accuracy_decimals: 1
+
+#---ina229 temperature
+    temperature:
+      name: "${name3} Temperature"
+      accuracy_decimals: 1
+
+#---ina229 shunt voltage
+    shunt_voltage:
+      name: "${name3} Shunt Voltage"
+      accuracy_decimals: 6
+
+#---ina229 charge coloumbs
+    charge_coulombs:
+      id: ina22x_coloumbs
+      name: "${name3} Charge (Coulombs)"
+      accuracy_decimals: 1
+  
 
 
 switch:
